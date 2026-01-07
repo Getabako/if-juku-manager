@@ -24,7 +24,7 @@ import type { ReelGenerationResult, Topic, Slide, CategoryType } from './lib/typ
 
 // ロゴとサンクス画像のパス
 const LOGO_PATH = path.join(PATHS.rawPhotos, 'logo.png');
-const THANKS_IMAGE_PATH = path.join(PATHS.rawPhotos, 'ifjukuthanks.png');
+const THANKS_IMAGE_PATH = path.join(PATHS.rawPhotos, 'ifjukuthanksreel.png');
 
 // CI環境でのブラウザパス（GitHub Actions等）
 const BROWSER_EXECUTABLE = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
@@ -150,7 +150,7 @@ export async function generateReel(
     }
 
     // 2. 背景画像を生成（リール用縦長）
-    logger.info('リール用背景画像を生成中...');
+    logger.info('リール用背景画像を準備中...');
     const backgroundImages: string[] = [];
 
     // スライド数分の背景を生成（最大3枚）
@@ -160,18 +160,36 @@ export async function generateReel(
     if (imagePrompts.length > 0) {
       for (let i = 0; i < Math.min(slidesToUse.length, imagePrompts.length); i++) {
         const prompt = imagePrompts[i];
-        if (prompt && prompt !== '実際の写真を使用するため不要') {
+
+        // USE_PHOTO: プレフィックスがある場合は実際の写真を使用
+        if (prompt && prompt.startsWith('USE_PHOTO:')) {
+          const parts = prompt.split(':');
+          const photoPath = parts[1];
+          logger.info(`実際の写真を使用: ${path.basename(photoPath)}`);
+          // 写真を元にスタイライズした背景を生成
+          const result = await geminiGenerator.generateFromReference(photoPath, category);
+          if (result.success && result.imagePath) {
+            backgroundImages.push(result.imagePath);
+          } else {
+            // フォールバック：元の写真をそのまま使用
+            backgroundImages.push(photoPath);
+          }
+          await delay(1000);
+        } else if (prompt && prompt !== '実際の写真を使用するため不要') {
+          // 具体的なプロンプトから画像を生成
+          logger.info(`コンテンツ連動画像を生成: ${prompt.slice(0, 50)}...`);
           const result = await geminiGenerator.generateContentSpecificBackground(prompt, 'reel');
           if (result.success && result.imagePath) {
             backgroundImages.push(result.imagePath);
           }
+          await delay(1000);
         }
-        await delay(1000);
       }
     }
 
     // 足りない分はカテゴリ別のデフォルト背景を生成
     while (backgroundImages.length < slidesToUse.length) {
+      logger.info(`追加の背景画像を生成中... (${backgroundImages.length + 1}/${slidesToUse.length})`);
       const result = await geminiGenerator.generateReelBackground(category);
       if (result.success && result.imagePath) {
         backgroundImages.push(result.imagePath);
@@ -179,7 +197,7 @@ export async function generateReel(
       await delay(1000); // レート制限対策
     }
 
-    logger.success(`${backgroundImages.length} 枚の背景画像を生成しました`);
+    logger.success(`${backgroundImages.length} 枚の背景画像を準備しました`);
 
     // 3. 画像をBase64データURLに変換（file://プロトコル問題を回避）
     logger.info('画像をBase64に変換中...');

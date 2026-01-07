@@ -20,7 +20,7 @@ import type { CategoryType, Slide, Topic } from './lib/types.js';
 
 // ロゴとサンクス画像のパス
 const LOGO_PATH = path.join(PATHS.rawPhotos, 'logo.png');
-const THANKS_IMAGE_PATH = path.join(PATHS.rawPhotos, 'ifjukuthanks.png');
+const THANKS_IMAGE_PATH = path.join(PATHS.rawPhotos, 'ifjukuthanksreel.png');
 const BROWSER_EXECUTABLE = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
 
 // カテゴリ一覧
@@ -136,25 +136,42 @@ async function generateForCategory(category: CategoryType): Promise<GenerationRe
     await fs.mkdir(outputDir, { recursive: true });
 
     // 3. 背景画像を生成
-    logger.info('背景画像を生成中...');
+    logger.info('背景画像を準備中...');
     const backgroundImages: string[] = [];
 
     // コンテンツ固有の画像プロンプトがあれば使用
     if (content.imagePrompts && content.imagePrompts.length > 0) {
       for (let i = 0; i < Math.min(content.slides.length, content.imagePrompts.length); i++) {
         const prompt = content.imagePrompts[i];
-        if (prompt && prompt !== '実際の写真を使用するため不要') {
+
+        // USE_PHOTO: プレフィックスがある場合は実際の写真を使用
+        if (prompt && prompt.startsWith('USE_PHOTO:')) {
+          const parts = prompt.split(':');
+          const photoPath = parts[1];
+          logger.info(`実際の写真を使用: ${path.basename(photoPath)}`);
+          // 写真を元にスタイライズした背景を生成
+          const result = await geminiGenerator.generateFromReference(photoPath, category);
+          if (result.success && result.imagePath) {
+            backgroundImages.push(result.imagePath);
+          } else {
+            // フォールバック：元の写真をそのまま使用
+            backgroundImages.push(photoPath);
+          }
+          await delay(1500);
+        } else if (prompt && prompt !== '実際の写真を使用するため不要') {
+          logger.info(`コンテンツ連動画像を生成: ${prompt.slice(0, 50)}...`);
           const result = await geminiGenerator.generateContentSpecificBackground(prompt, 'carousel');
           if (result.success && result.imagePath) {
             backgroundImages.push(result.imagePath);
           }
+          await delay(1500);
         }
-        await delay(1500);
       }
     }
 
     // 足りない分は通常生成
     while (backgroundImages.length < content.slides.length) {
+      logger.info(`追加の背景画像を生成中... (${backgroundImages.length + 1}/${content.slides.length})`);
       const result = await geminiGenerator.generateCarouselBackground(category);
       if (result.success && result.imagePath) {
         backgroundImages.push(result.imagePath);
@@ -162,7 +179,7 @@ async function generateForCategory(category: CategoryType): Promise<GenerationRe
       await delay(1500);
     }
 
-    logger.success(`${backgroundImages.length}枚の背景画像を生成`);
+    logger.success(`${backgroundImages.length}枚の背景画像を準備完了`);
 
     // 4. カルーセル画像を生成
     logger.info('カルーセル画像を合成中...');

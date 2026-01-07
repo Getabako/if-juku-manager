@@ -128,25 +128,43 @@ export async function generateCarousel(
       logger.info('既存の背景画像を使用します');
       backgroundImages = options.useExistingBackgrounds;
     } else {
-      logger.info('Gemini で背景画像を生成中...');
+      logger.info('背景画像を準備中...');
 
       backgroundImages = [];
       // コンテンツ固有の画像プロンプトがあれば使用
       if (imagePrompts.length > 0) {
         for (let i = 0; i < Math.min(slides.length, imagePrompts.length); i++) {
           const prompt = imagePrompts[i];
-          if (prompt && prompt !== '実際の写真を使用するため不要') {
+
+          // USE_PHOTO: プレフィックスがある場合は実際の写真を使用
+          if (prompt && prompt.startsWith('USE_PHOTO:')) {
+            const parts = prompt.split(':');
+            const photoPath = parts[1];
+            logger.info(`実際の写真を使用: ${path.basename(photoPath)}`);
+            // 写真を元にスタイライズした背景を生成
+            const result = await geminiGenerator.generateFromReference(photoPath, category);
+            if (result.success && result.imagePath) {
+              backgroundImages.push(result.imagePath);
+            } else {
+              // フォールバック：元の写真をそのまま使用
+              backgroundImages.push(photoPath);
+            }
+            await delay(1500);
+          } else if (prompt && prompt !== '実際の写真を使用するため不要') {
+            // 具体的なプロンプトから画像を生成
+            logger.info(`コンテンツ連動画像を生成: ${prompt.slice(0, 50)}...`);
             const result = await geminiGenerator.generateContentSpecificBackground(prompt, 'carousel');
             if (result.success && result.imagePath) {
               backgroundImages.push(result.imagePath);
             }
+            await delay(1500);
           }
-          await delay(1500);
         }
       }
 
       // 足りない分はカテゴリ別のデフォルト背景を生成
       while (backgroundImages.length < slides.length) {
+        logger.info(`追加の背景画像を生成中... (${backgroundImages.length + 1}/${slides.length})`);
         const result = await geminiGenerator.generateCarouselBackground(category);
         if (result.success && result.imagePath) {
           backgroundImages.push(result.imagePath);
@@ -154,7 +172,7 @@ export async function generateCarousel(
         await delay(1500);
       }
 
-      logger.success(`${backgroundImages.length} 枚の背景画像を生成しました`);
+      logger.success(`${backgroundImages.length} 枚の背景画像を準備しました`);
     }
 
     // 3. HTML テンプレートと合成してスライド画像を生成

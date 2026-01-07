@@ -164,8 +164,8 @@ export class PhotoMetadataParser {
    * フォーマット: イベント_人物_表情_ポーズ_詳細.jpg
    */
   private parseFilename(filename: string): PhotoMetadata | null {
-    // logo.pngやifjukuthanks.pngはスキップ
-    if (filename === 'logo.png' || filename === 'ifjukuthanks.png') {
+    // logo.pngやifjukuthanks系画像はスキップ
+    if (filename === 'logo.png' || filename.startsWith('ifjukuthanks')) {
       return null;
     }
 
@@ -221,7 +221,7 @@ export class PhotoMetadataParser {
   }
 
   private isSystemFile(filename: string): boolean {
-    return filename.startsWith('.') || filename === 'logo.png' || filename === 'ifjukuthanks.png';
+    return filename.startsWith('.') || filename === 'logo.png' || filename.startsWith('ifjukuthanks');
   }
 
   private isExpression(text: string): boolean {
