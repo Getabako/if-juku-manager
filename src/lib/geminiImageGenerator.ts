@@ -212,8 +212,12 @@ export class GeminiImageGenerator {
       prompt = DEFAULT_PROMPTS.announcement;
     } else if (category.includes('成功') || category.includes('事例') || category.includes('success')) {
       prompt = DEFAULT_PROMPTS.successStory;
-    } else if (category.includes('AI') || category.includes('テク') || category.includes('tech')) {
+    } else if (category.includes('AI') || category.includes('テク') || category.includes('tech') || category.includes('ai')) {
       prompt = DEFAULT_PROMPTS.aiTech;
+    } else if (category.includes('business') || category.includes('ビジネス') || category.includes('稼')) {
+      prompt = DEFAULT_PROMPTS.business;
+    } else if (category.includes('education') || category.includes('教育')) {
+      prompt = DEFAULT_PROMPTS.education;
     }
 
     return this.generateImage({
@@ -221,6 +225,33 @@ export class GeminiImageGenerator {
       height: IMAGE_SIZES.carousel.height,
       prompt,
       style: 'modern, vibrant, professional, eye-catching gradients',
+    });
+  }
+
+  /**
+   * 具体的なプロンプトから背景画像を生成（コンテンツ連動型）
+   */
+  async generateContentSpecificBackground(
+    customPrompt: string,
+    size: 'carousel' | 'reel' = 'carousel'
+  ): Promise<GeminiImageResponse> {
+    const dimensions = size === 'carousel' ? IMAGE_SIZES.carousel : IMAGE_SIZES.reel;
+
+    const enhancedPrompt = `${customPrompt}
+
+Requirements:
+- High quality, 4K resolution
+- Modern, eye-catching design
+- Suitable for text overlay (avoid busy center areas)
+- No text or letters in the image
+- ${size === 'reel' ? 'Vertical orientation, mobile-first design' : 'Portrait format'}
+- Vibrant colors, professional look`;
+
+    return this.generateImage({
+      width: dimensions.width,
+      height: dimensions.height,
+      prompt: enhancedPrompt,
+      style: 'modern, vibrant, Instagram-worthy, professional',
     });
   }
 

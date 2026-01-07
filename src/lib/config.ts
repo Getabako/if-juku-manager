@@ -85,6 +85,42 @@ export const DEFAULT_PROMPTS = {
     Neural network patterns, circuit board aesthetics.
     Blue and purple gradients with glowing elements.
     Cutting-edge, innovative feel.
+    Cyber punk style with neon accents.
+    Modern UI elements floating in space.
+    No text, no people.
+    High quality, 4K resolution.`,
+
+  business: `Money and business success background.
+    Gold coins, cryptocurrency symbols, growth charts.
+    Luxury feel with gold and black color scheme.
+    Financial success, wealth creation metaphors.
+    Modern fintech aesthetic.
+    Glowing graphs trending upward.
+    No text, no people.
+    High quality, 4K resolution.`,
+
+  education: `Inspiring education and parenting background.
+    Warm, nurturing atmosphere with soft lighting.
+    Books, graduation caps, lightbulbs (ideas).
+    Orange and green color scheme suggesting growth.
+    Family-friendly, trustworthy feel.
+    Children's potential, future success imagery.
+    No text, no people.
+    High quality, 4K resolution.`,
+
+  development: `Software development and coding background.
+    Code editor aesthetics, terminal windows.
+    Matrix-style code rain or floating code snippets.
+    Dark theme with neon syntax highlighting colors.
+    Modern IDE look, GitHub-style interfaces.
+    No readable text, abstract code patterns only.
+    High quality, 4K resolution.`,
+
+  activity: `Energetic team activity background.
+    Dynamic, movement-inspired abstract shapes.
+    Bright, cheerful colors suggesting fun and energy.
+    Gaming and esports aesthetic elements.
+    Competition and achievement vibes.
     No text, no people.
     High quality, 4K resolution.`,
 } as const;
