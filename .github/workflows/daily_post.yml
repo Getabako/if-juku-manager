@@ -1,0 +1,97 @@
+name: Daily Instagram Post
+
+on:
+  # 手動実行
+  workflow_dispatch:
+    inputs:
+      workflow_type:
+        description: '実行するワークフロー'
+        required: true
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - evening
+
+  # スケジュール実行（UTC時間で指定）
+  # 日本時間 09:00 = UTC 00:00
+  # 日本時間 20:00 = UTC 11:00
+  schedule:
+    - cron: '0 0 * * *'   # 毎日 09:00 JST (朝の投稿)
+    - cron: '0 11 * * *'  # 毎日 20:00 JST (夜の投稿)
+
+env:
+  NODE_VERSION: '20'
+  TZ: 'Asia/Tokyo'
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Puppeteer dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgbm-dev \
+            libnss3 \
+            libatk-bridge2.0-0 \
+            libdrm2 \
+            libxkbcommon-x11-0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libcups2 \
+            libasound2
+
+      - name: Determine workflow type
+        id: workflow
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.workflow_type }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 0 * * *" ]; then
+            echo "type=morning" >> $GITHUB_OUTPUT
+          else
+            echo "type=evening" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Morning Workflow (Carousel)
+        if: steps.workflow.outputs.type == 'morning'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: npm run daily:morning
+
+      - name: Run Evening Workflow (Reel)
+        if: steps.workflow.outputs.type == 'evening'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: npm run daily:evening
+
+      - name: Upload generated assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-content-${{ github.run_number }}
+          path: assets/generated/
+          retention-days: 7
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::ワークフローが失敗しました。ログを確認してください。"

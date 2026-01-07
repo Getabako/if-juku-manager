@@ -1,0 +1,173 @@
+{
+  "topics": [
+    {
+      "id": "announcement-001",
+      "category": "事業のお知らせ",
+      "title": "新規コース開講のお知らせ",
+      "slides": [
+        {
+          "type": "cover",
+          "headline": "新コース開講！",
+          "subtext": "AI×プログラミング入門"
+        },
+        {
+          "type": "content",
+          "headline": "対象者",
+          "points": ["プログラミング初心者", "AIに興味がある方", "副業を始めたい方"]
+        },
+        {
+          "type": "content",
+          "headline": "学べること",
+          "points": ["ChatGPT活用術", "画像生成AI", "業務自動化"]
+        },
+        {
+          "type": "content",
+          "headline": "特典",
+          "points": ["無料体験レッスン", "教材プレゼント", "個別サポート"]
+        },
+        {
+          "type": "thanks",
+          "headline": "まずは無料相談から",
+          "cta": "プロフィールのリンクをチェック！"
+        }
+      ],
+      "caption": "🎉 新コース開講のお知らせ！\n\nAI×プログラミングの基礎から学べる入門コースが登場しました。\n\n✅ プログラミング初心者OK\n✅ AIツールの活用法を実践\n✅ 副業・キャリアアップに直結\n\n詳しくはプロフィールのリンクから！\n\n#AI学習 #プログラミング初心者 #副業 #スキルアップ #if塾"
+    },
+    {
+      "id": "success-story-001",
+      "category": "成長事例",
+      "title": "受講生の収益化成功事例",
+      "slides": [
+        {
+          "type": "cover",
+          "headline": "収益化成功！",
+          "subtext": "受講3ヶ月で月5万円達成"
+        },
+        {
+          "type": "content",
+          "headline": "Before",
+          "points": ["完全未経験", "PCスキル初心者", "副業経験なし"]
+        },
+        {
+          "type": "content",
+          "headline": "学んだこと",
+          "points": ["Webライティング", "AI活用術", "クライアント対応"]
+        },
+        {
+          "type": "content",
+          "headline": "After",
+          "points": ["月5万円の副収入", "継続案件を獲得", "自信がついた"]
+        },
+        {
+          "type": "thanks",
+          "headline": "あなたも始めませんか？",
+          "cta": "無料相談受付中！"
+        }
+      ],
+      "caption": "✨ 受講生の成功事例をご紹介！\n\n【Before】\n・完全未経験からスタート\n・PCスキルも初心者レベル\n\n【After】\n・わずか3ヶ月で月5万円の副収入！\n・継続案件も獲得\n\nあなたも一歩踏み出してみませんか？\n\n#副業成功 #スキルアップ #収益化 #AI副業 #if塾"
+    },
+    {
+      "id": "column-ai-001",
+      "category": "AIコラム",
+      "title": "ChatGPTの効果的な使い方",
+      "slides": [
+        {
+          "type": "cover",
+          "headline": "ChatGPT活用術",
+          "subtext": "これで10倍効率UP！"
+        },
+        {
+          "type": "content",
+          "headline": "コツ①",
+          "points": ["役割を明確に指示", "例: あなたは○○の専門家です"]
+        },
+        {
+          "type": "content",
+          "headline": "コツ②",
+          "points": ["具体的な条件を伝える", "文字数・形式・トーンを指定"]
+        },
+        {
+          "type": "content",
+          "headline": "コツ③",
+          "points": ["段階的に質問する", "一度に全部聞かない"]
+        },
+        {
+          "type": "thanks",
+          "headline": "保存して試してね！",
+          "cta": "フォローで最新情報をGET"
+        }
+      ],
+      "caption": "💡 ChatGPTを10倍活用するコツ\n\n① 役割を明確に指示する\n→「あなたは〇〇の専門家です」\n\n② 具体的な条件を伝える\n→ 文字数、形式、トーンを指定\n\n③ 段階的に質問する\n→ 一度に全部聞かない\n\n保存して試してみてね！\n\n#ChatGPT #AI活用 #プロンプト #効率化 #if塾"
+    },
+    {
+      "id": "ai-news-001",
+      "category": "最新AI情報",
+      "title": "2024年注目のAIトレンド",
+      "slides": [
+        {
+          "type": "cover",
+          "headline": "AIトレンド2024",
+          "subtext": "押さえておきたい5つのポイント"
+        },
+        {
+          "type": "content",
+          "headline": "トレンド①",
+          "points": ["マルチモーダルAI", "テキスト×画像×音声の統合"]
+        },
+        {
+          "type": "content",
+          "headline": "トレンド②",
+          "points": ["AIエージェント", "自律的にタスクを実行"]
+        },
+        {
+          "type": "content",
+          "headline": "トレンド③",
+          "points": ["ローカルAI", "プライバシー重視の時代へ"]
+        },
+        {
+          "type": "thanks",
+          "headline": "最新情報をお届け！",
+          "cta": "フォローして見逃さないで"
+        }
+      ],
+      "caption": "🔥 2024年注目のAIトレンド\n\n1️⃣ マルチモーダルAI\n→ テキスト×画像×音声が統合\n\n2️⃣ AIエージェント\n→ 自律的にタスクを実行\n\n3️⃣ ローカルAI\n→ プライバシー重視の時代\n\n最新情報はフォローでチェック！\n\n#AI #トレンド #テクノロジー #最新情報 #if塾"
+    },
+    {
+      "id": "education-column-001",
+      "category": "教育コラム",
+      "title": "学び続ける人だけが成功する理由",
+      "slides": [
+        {
+          "type": "cover",
+          "headline": "学び続ける人が勝つ",
+          "subtext": "成功者に共通する習慣"
+        },
+        {
+          "type": "content",
+          "headline": "理由①",
+          "points": ["変化に適応できる", "新しいスキルを常に獲得"]
+        },
+        {
+          "type": "content",
+          "headline": "理由②",
+          "points": ["チャンスを掴める", "知識が選択肢を広げる"]
+        },
+        {
+          "type": "content",
+          "headline": "理由③",
+          "points": ["自信がつく", "成長実感がモチベーションに"]
+        },
+        {
+          "type": "thanks",
+          "headline": "今日から始めよう！",
+          "cta": "小さな一歩が大きな変化に"
+        }
+      ],
+      "caption": "📚 学び続ける人だけが成功する理由\n\n① 変化に適応できる\n→ 新しいスキルを常に獲得\n\n② チャンスを掴める\n→ 知識が選択肢を広げる\n\n③ 自信がつく\n→ 成長実感がモチベーションに\n\n今日から小さな一歩を！\n\n#学び #自己成長 #スキルアップ #成功習慣 #if塾"
+    }
+  ],
+  "settings": {
+    "rotationMode": "sequential",
+    "lastUsedIndex": 0
+  }
+}
