@@ -10,6 +10,10 @@ import { PATHS, IMAGE_SIZES } from './config.js';
 import { logger } from './logger.js';
 import type { Slide, CompositeOptions } from './types.js';
 
+// ロゴとサンクス画像のパス
+const LOGO_PATH = path.join(PATHS.rawPhotos, 'logo.png');
+const THANKS_IMAGE_PATH = path.join(PATHS.rawPhotos, 'ifjukuthanks.png');
+
 export class HtmlComposer {
   private browser: Browser | null = null;
 
@@ -61,6 +65,22 @@ export class HtmlComposer {
   }
 
   /**
+   * 画像ファイルをBase64 Data URLに変換
+   */
+  private async imageToDataUrl(imagePath: string): Promise<string> {
+    try {
+      const imageBuffer = await fs.readFile(imagePath);
+      const base64 = imageBuffer.toString('base64');
+      const mimeType = imagePath.toLowerCase().endsWith('.png')
+        ? 'image/png'
+        : 'image/jpeg';
+      return `data:${mimeType};base64,${base64}`;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * HTMLからスクリーンショットを撮影して画像を生成
    */
   async renderToImage(options: CompositeOptions): Promise<string> {
@@ -69,21 +89,23 @@ export class HtmlComposer {
     const { templatePath, backgroundImagePath, outputPath, variables } = options;
 
     try {
-      // 背景画像をBase64に変換（ローカルファイル用）
-      let backgroundDataUrl = '';
-      if (backgroundImagePath) {
-        const imageBuffer = await fs.readFile(backgroundImagePath);
-        const base64 = imageBuffer.toString('base64');
-        const mimeType = backgroundImagePath.endsWith('.png')
-          ? 'image/png'
-          : 'image/jpeg';
-        backgroundDataUrl = `data:${mimeType};base64,${base64}`;
-      }
+      // 背景画像をBase64に変換
+      const backgroundDataUrl = backgroundImagePath
+        ? await this.imageToDataUrl(backgroundImagePath)
+        : '';
+
+      // ロゴ画像をBase64に変換
+      const logoDataUrl = await this.imageToDataUrl(LOGO_PATH);
+
+      // サンクス画像をBase64に変換
+      const thanksDataUrl = await this.imageToDataUrl(THANKS_IMAGE_PATH);
 
       // テンプレートを読み込み
       const allVariables = {
         ...variables,
         BACKGROUND_IMAGE: backgroundDataUrl,
+        LOGO_IMAGE: logoDataUrl,
+        THANKS_IMAGE: thanksDataUrl,
       };
       const html = await this.loadTemplate(templatePath, allVariables);
 
@@ -195,6 +217,7 @@ export class HtmlComposer {
 
   /**
    * カルーセルサンクススライドを生成
+   * ifjukuthanks.pngをそのまま表示
    */
   async renderThanksSlide(
     slide: Slide,
@@ -203,14 +226,12 @@ export class HtmlComposer {
   ): Promise<string> {
     const templatePath = path.join(PATHS.templates, 'carousel-thanks.html');
 
+    // サンクス画像を直接使用（背景画像は不要）
     return this.renderToImage({
       templatePath,
-      backgroundImagePath,
+      backgroundImagePath: '', // 使用しない
       outputPath,
-      variables: {
-        HEADLINE: slide.headline,
-        CTA: slide.cta || 'フォローで最新情報をGET!',
-      },
+      variables: {},
     });
   }
 

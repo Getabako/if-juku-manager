@@ -1,6 +1,7 @@
 /**
  * リール動画コンポーネント
  * スライド画像をアニメーション付きで表示
+ * ロゴ画像、ズーム、文字アニメーション対応
  */
 import React from 'react';
 import {
@@ -12,6 +13,8 @@ import {
   spring,
   Img,
   Audio,
+  staticFile,
+  Easing,
 } from 'remotion';
 
 interface Slide {
@@ -24,39 +27,78 @@ interface Slide {
 interface ReelVideoProps {
   slides: Slide[];
   backgroundImages: string[];
-  brandName: string;
+  logoPath?: string;
+  thanksImagePath?: string;
   bgmPath?: string;
 }
 
-// テキストアニメーションコンポーネント
+// テキストスライドインアニメーション
 const AnimatedText: React.FC<{
   text: string;
   delay?: number;
   style?: React.CSSProperties;
-}> = ({ text, delay = 0, style }) => {
+  animationType?: 'slideUp' | 'slideLeft' | 'fadeScale' | 'typewriter';
+}> = ({ text, delay = 0, style, animationType = 'slideUp' }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const opacity = interpolate(frame - delay, [0, 15], [0, 1], {
-    extrapolateRight: 'clamp',
-  });
+  const springConfig = {
+    damping: 100,
+    stiffness: 200,
+    mass: 0.5,
+  };
 
-  const translateY = spring({
+  const springValue = spring({
     frame: frame - delay,
     fps,
-    config: {
-      damping: 200,
-      stiffness: 100,
-    },
+    config: springConfig,
   });
 
-  const y = interpolate(translateY, [0, 1], [50, 0]);
+  let transform = '';
+  let opacity = 1;
+
+  switch (animationType) {
+    case 'slideUp':
+      opacity = interpolate(frame - delay, [0, 10], [0, 1], {
+        extrapolateRight: 'clamp',
+        extrapolateLeft: 'clamp',
+      });
+      const y = interpolate(springValue, [0, 1], [80, 0]);
+      transform = `translateY(${y}px)`;
+      break;
+
+    case 'slideLeft':
+      opacity = interpolate(frame - delay, [0, 10], [0, 1], {
+        extrapolateRight: 'clamp',
+        extrapolateLeft: 'clamp',
+      });
+      const x = interpolate(springValue, [0, 1], [100, 0]);
+      transform = `translateX(${x}px)`;
+      break;
+
+    case 'fadeScale':
+      opacity = interpolate(frame - delay, [0, 15], [0, 1], {
+        extrapolateRight: 'clamp',
+        extrapolateLeft: 'clamp',
+      });
+      const scale = interpolate(springValue, [0, 1], [0.8, 1]);
+      transform = `scale(${scale})`;
+      break;
+
+    case 'typewriter':
+      opacity = 1;
+      break;
+  }
+
+  if (frame < delay) {
+    opacity = 0;
+  }
 
   return (
     <div
       style={{
         opacity,
-        transform: `translateY(${y}px)`,
+        transform,
         ...style,
       }}
     >
@@ -65,53 +107,125 @@ const AnimatedText: React.FC<{
   );
 };
 
-// 単一スライドコンポーネント
+// ポイントリストアニメーション
+const AnimatedPointList: React.FC<{
+  points: string[];
+  startDelay?: number;
+}> = ({ points, startDelay = 20 }) => {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 28,
+        width: '100%',
+        padding: '0 40px',
+      }}
+    >
+      {points.map((point, index) => (
+        <AnimatedText
+          key={index}
+          text={`✓ ${point}`}
+          delay={startDelay + index * 12}
+          animationType="slideLeft"
+          style={{
+            fontSize: 44,
+            fontWeight: 700,
+            color: '#333',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,245,235,0.95))',
+            padding: '28px 40px',
+            borderRadius: 24,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+            borderLeft: '6px solid #FF6B35',
+            fontFamily: 'Noto Sans JP, sans-serif',
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// 単一スライドコンポーネント（ズーム・パンアニメーション付き）
 const SlideScene: React.FC<{
   slide: Slide;
   backgroundImage: string;
+  logoPath?: string;
   isFirst: boolean;
   isLast: boolean;
-}> = ({ slide, backgroundImage, isFirst, isLast }) => {
+}> = ({ slide, backgroundImage, logoPath, isFirst, isLast }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
 
-  // ズームエフェクト
-  const scale = interpolate(frame, [0, 90], [1, 1.1], {
-    extrapolateRight: 'clamp',
-  });
+  // 複数のズームパターン
+  const zoomPatterns = [
+    { startScale: 1, endScale: 1.15, startX: 0, endX: -30 }, // ズームイン + 左へパン
+    { startScale: 1.1, endScale: 1, startX: -20, endX: 0 }, // ズームアウト + 右へパン
+    { startScale: 1, endScale: 1.12, startX: 0, endX: 20 }, // ズームイン + 右へパン
+    { startScale: 1.08, endScale: 1.02, startX: 15, endX: -15 }, // ゆっくりズーム + 左右パン
+  ];
+
+  // ランダムなパターンを選択（フレームベースで決定論的に）
+  const patternIndex = Math.floor((frame / 100) % zoomPatterns.length);
+  const pattern = zoomPatterns[isFirst ? 0 : patternIndex];
+
+  // ズームエフェクト（滑らか）
+  const scale = interpolate(
+    frame,
+    [0, durationInFrames],
+    [pattern.startScale, pattern.endScale],
+    { extrapolateRight: 'clamp' }
+  );
+
+  // パンエフェクト
+  const translateX = interpolate(
+    frame,
+    [0, durationInFrames],
+    [pattern.startX, pattern.endX],
+    { extrapolateRight: 'clamp' }
+  );
 
   // フェードイン/アウト
   const opacity = interpolate(
     frame,
-    [0, 15, 75, 90],
+    [0, 20, durationInFrames - 15, durationInFrames],
     [0, 1, 1, isLast ? 1 : 0],
     { extrapolateRight: 'clamp' }
   );
 
   return (
     <AbsoluteFill style={{ opacity }}>
-      {/* 背景画像 */}
+      {/* 背景画像（ズーム・パン付き） */}
       {backgroundImage && (
-        <Img
-          src={backgroundImage}
+        <div
           style={{
             position: 'absolute',
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transform: `scale(${scale})`,
+            width: '120%',
+            height: '120%',
+            top: '-10%',
+            left: '-10%',
+            overflow: 'hidden',
           }}
-        />
+        >
+          <Img
+            src={backgroundImage}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transform: `scale(${scale}) translateX(${translateX}px)`,
+            }}
+          />
+        </div>
       )}
 
-      {/* オーバーレイ */}
+      {/* グラデーションオーバーレイ */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           background: isFirst
-            ? 'linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.6) 100%)'
-            : 'linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 100%)',
+            ? 'linear-gradient(135deg, rgba(255,0,128,0.6) 0%, rgba(128,0,255,0.5) 50%, rgba(0,128,255,0.4) 100%)'
+            : 'linear-gradient(180deg, rgba(78,205,196,0.7) 0%, rgba(85,98,255,0.6) 50%, rgba(255,0,128,0.6) 100%)',
         }}
       />
 
@@ -131,12 +245,14 @@ const SlideScene: React.FC<{
         <AnimatedText
           text={slide.headline}
           delay={5}
+          animationType={isFirst ? 'fadeScale' : 'slideUp'}
           style={{
-            fontSize: isFirst ? 96 : 72,
+            fontSize: isFirst ? 100 : 76,
             fontWeight: 900,
             color: '#ffffff',
             textAlign: 'center',
             textShadow: `
+              0 0 30px ${isFirst ? '#FF6B35' : '#4ECDC4'},
               -4px -4px 0 ${isFirst ? '#FF6B35' : '#4ECDC4'},
               4px -4px 0 ${isFirst ? '#FF6B35' : '#4ECDC4'},
               -4px 4px 0 ${isFirst ? '#FF6B35' : '#4ECDC4'},
@@ -148,6 +264,7 @@ const SlideScene: React.FC<{
             `,
             marginBottom: 40,
             fontFamily: 'Noto Sans JP, sans-serif',
+            lineHeight: 1.3,
           }}
         />
 
@@ -155,69 +272,65 @@ const SlideScene: React.FC<{
         {slide.subtext && (
           <AnimatedText
             text={slide.subtext}
-            delay={20}
+            delay={18}
+            animationType="slideUp"
             style={{
-              fontSize: 48,
+              fontSize: 52,
               fontWeight: 700,
               color: '#FFE66D',
               textAlign: 'center',
               textShadow: '-3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000',
               fontFamily: 'Noto Sans JP, sans-serif',
+              marginBottom: 30,
             }}
           />
         )}
 
         {/* ポイントリスト */}
         {slide.points && slide.points.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 24,
-              marginTop: 40,
-              width: '100%',
-            }}
-          >
-            {slide.points.map((point, index) => (
-              <AnimatedText
-                key={index}
-                text={`✓ ${point}`}
-                delay={30 + index * 10}
-                style={{
-                  fontSize: 42,
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  background: 'rgba(255,255,255,0.95)',
-                  padding: '24px 36px',
-                  borderRadius: 20,
-                  color: '#333',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
-                  fontFamily: 'Noto Sans JP, sans-serif',
-                }}
-              />
-            ))}
-          </div>
+          <AnimatedPointList points={slide.points} startDelay={25} />
         )}
       </div>
 
-      {/* ブランドバッジ */}
-      <div
+      {/* ロゴ画像（右下） */}
+      {logoPath && (
+        <Img
+          src={logoPath}
+          style={{
+            position: 'absolute',
+            bottom: 60,
+            right: 50,
+            width: 140,
+            height: 'auto',
+            filter: 'drop-shadow(0 6px 15px rgba(0,0,0,0.5))',
+          }}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// サンクス画像シーン（フェードイン、アニメーションなし）
+const ThanksScene: React.FC<{
+  thanksImagePath: string;
+}> = ({ thanksImagePath }) => {
+  const frame = useCurrentFrame();
+
+  // フェードインのみ
+  const opacity = interpolate(frame, [0, 30], [0, 1], {
+    extrapolateRight: 'clamp',
+  });
+
+  return (
+    <AbsoluteFill style={{ opacity }}>
+      <Img
+        src={thanksImagePath}
         style={{
-          position: 'absolute',
-          bottom: 80,
-          right: 60,
-          background: 'linear-gradient(135deg, #FF6B35 0%, #F7931E 100%)',
-          color: 'white',
-          fontSize: 32,
-          fontWeight: 900,
-          padding: '16px 32px',
-          borderRadius: 40,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
-          fontFamily: 'Noto Sans JP, sans-serif',
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
         }}
-      >
-        if塾
-      </div>
+      />
     </AbsoluteFill>
   );
 };
@@ -226,7 +339,8 @@ const SlideScene: React.FC<{
 export const ReelVideo: React.FC<ReelVideoProps> = ({
   slides,
   backgroundImages,
-  brandName,
+  logoPath,
+  thanksImagePath,
   bgmPath,
 }) => {
   const { durationInFrames, fps } = useVideoConfig();
@@ -236,12 +350,15 @@ export const ReelVideo: React.FC<ReelVideoProps> = ({
     slides = [
       { type: 'cover', headline: 'if塾', subtext: 'AI×プログラミング教育' },
       { type: 'content', headline: '学べること', points: ['ChatGPT活用術', '画像生成AI', '業務自動化'] },
-      { type: 'thanks', headline: 'フォローしてね！' },
     ];
   }
 
+  // サンクス画像用に最後の90フレーム（3秒）を確保
+  const thanksFrames = thanksImagePath ? 90 : 0;
+  const contentFrames = durationInFrames - thanksFrames;
+
   // 各スライドの表示時間を計算
-  const framesPerSlide = Math.floor(durationInFrames / slides.length);
+  const framesPerSlide = Math.floor(contentFrames / slides.length);
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
@@ -258,46 +375,19 @@ export const ReelVideo: React.FC<ReelVideoProps> = ({
           <SlideScene
             slide={slide}
             backgroundImage={backgroundImages[index] || backgroundImages[0] || ''}
+            logoPath={logoPath}
             isFirst={index === 0}
-            isLast={index === slides.length - 1}
+            isLast={index === slides.length - 1 && !thanksImagePath}
           />
         </Sequence>
       ))}
 
-      {/* エンドスクリーン */}
-      <Sequence from={durationInFrames - 30} durationInFrames={30}>
-        <AbsoluteFill
-          style={{
-            background: 'linear-gradient(135deg, #FF6B35 0%, #F7931E 100%)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <AnimatedText
-            text={brandName}
-            style={{
-              fontSize: 120,
-              fontWeight: 900,
-              color: '#ffffff',
-              textShadow: '0 8px 30px rgba(0,0,0,0.3)',
-              fontFamily: 'Noto Sans JP, sans-serif',
-            }}
-          />
-          <AnimatedText
-            text="フォローで最新情報をGET!"
-            delay={10}
-            style={{
-              fontSize: 48,
-              fontWeight: 700,
-              color: '#FFE66D',
-              marginTop: 40,
-              fontFamily: 'Noto Sans JP, sans-serif',
-            }}
-          />
-        </AbsoluteFill>
-      </Sequence>
+      {/* サンクス画像（最後にフェードイン） */}
+      {thanksImagePath && (
+        <Sequence from={contentFrames} durationInFrames={thanksFrames}>
+          <ThanksScene thanksImagePath={thanksImagePath} />
+        </Sequence>
+      )}
     </AbsoluteFill>
   );
 };

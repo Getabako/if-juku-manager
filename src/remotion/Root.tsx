@@ -20,7 +20,8 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           slides: [],
           backgroundImages: [],
-          brandName: 'if塾',
+          logoPath: '',
+          thanksImagePath: '',
         }}
       />
 
@@ -35,7 +36,8 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           slides: [],
           backgroundImages: [],
-          brandName: 'if塾',
+          logoPath: '',
+          thanksImagePath: '',
         }}
       />
     </>

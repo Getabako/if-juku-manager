@@ -174,22 +174,14 @@
       z-index: -1;
     }
 
-    .brand-badge {
+    .brand-logo {
       position: absolute;
-      bottom: 80px;
-      right: 80px;
-      background: linear-gradient(135deg, #FF6B35 0%, #FF6B9D 50%, #FFE66D 100%);
-      color: white;
-      font-size: 42px;
-      font-weight: 900;
-      padding: 25px 50px;
-      border-radius: 60px;
-      box-shadow:
-        0 10px 40px rgba(255, 107, 53, 0.5),
-        0 0 30px rgba(255, 107, 53, 0.3),
-        inset 0 -3px 10px rgba(0, 0, 0, 0.2);
+      bottom: 60px;
+      right: 60px;
+      width: 180px;
+      height: auto;
       z-index: 10;
-      border: 3px solid rgba(255, 255, 255, 0.4);
+      filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
     }
 
     .slide-indicator {
@@ -279,7 +271,7 @@
       <h1 class="headline">{{HEADLINE}}</h1>
       <p class="subtext">{{SUBTEXT}}</p>
     </div>
-    <div class="brand-badge">if塾</div>
+    <img class="brand-logo" src="{{LOGO_IMAGE}}" alt="if塾">
     <div class="slide-indicator">
       <div class="indicator-dot active"></div>
       <div class="indicator-dot"></div>

@@ -17,6 +17,10 @@ import { logger } from './lib/logger.js';
 import { PATHS, IMAGE_SIZES } from './lib/config.js';
 import type { ReelGenerationResult, Topic, Slide } from './lib/types.js';
 
+// ロゴとサンクス画像のパス
+const LOGO_PATH = path.join(PATHS.rawPhotos, 'logo.png');
+const THANKS_IMAGE_PATH = path.join(PATHS.rawPhotos, 'ifjukuthanks.png');
+
 interface GenerateReelOptions {
   topicId?: string;
   duration?: 15 | 30; // 秒数
@@ -74,16 +78,19 @@ export async function generateReel(
     });
 
     // 4. コンポジションを選択
+    const inputProps = {
+      slides: slidesToUse,
+      backgroundImages: backgroundImages.map(
+        (img) => `file://${path.resolve(img)}`
+      ),
+      logoPath: `file://${path.resolve(LOGO_PATH)}`,
+      thanksImagePath: `file://${path.resolve(THANKS_IMAGE_PATH)}`,
+    };
+
     const composition = await selectComposition({
       serveUrl: bundleLocation,
       id: compositionId,
-      inputProps: {
-        slides: slidesToUse,
-        backgroundImages: backgroundImages.map(
-          (img) => `file://${path.resolve(img)}`
-        ),
-        brandName: 'if塾',
-      },
+      inputProps,
     });
 
     // 5. 動画をレンダリング
@@ -98,13 +105,7 @@ export async function generateReel(
       serveUrl: bundleLocation,
       codec: 'h264',
       outputLocation: outputPath,
-      inputProps: {
-        slides: slidesToUse,
-        backgroundImages: backgroundImages.map(
-          (img) => `file://${path.resolve(img)}`
-        ),
-        brandName: 'if塾',
-      },
+      inputProps,
     });
 
     const durationTime = ((Date.now() - startTime) / 1000).toFixed(1);
