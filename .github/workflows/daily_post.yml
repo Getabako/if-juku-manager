@@ -55,7 +55,7 @@ jobs:
             libxfixes3 \
             libxrandr2 \
             libcups2 \
-            libasound2
+            libasound2t64
 
       - name: Determine workflow type
         id: workflow

@@ -13,17 +13,29 @@
         {
           "type": "content",
           "headline": "対象者",
-          "points": ["プログラミング初心者", "AIに興味がある方", "副業を始めたい方"]
+          "points": [
+            "プログラミング初心者",
+            "AIに興味がある方",
+            "副業を始めたい方"
+          ]
         },
         {
           "type": "content",
           "headline": "学べること",
-          "points": ["ChatGPT活用術", "画像生成AI", "業務自動化"]
+          "points": [
+            "ChatGPT活用術",
+            "画像生成AI",
+            "業務自動化"
+          ]
         },
         {
           "type": "content",
           "headline": "特典",
-          "points": ["無料体験レッスン", "教材プレゼント", "個別サポート"]
+          "points": [
+            "無料体験レッスン",
+            "教材プレゼント",
+            "個別サポート"
+          ]
         },
         {
           "type": "thanks",
@@ -46,17 +58,29 @@
         {
           "type": "content",
           "headline": "Before",
-          "points": ["完全未経験", "PCスキル初心者", "副業経験なし"]
+          "points": [
+            "完全未経験",
+            "PCスキル初心者",
+            "副業経験なし"
+          ]
         },
         {
           "type": "content",
           "headline": "学んだこと",
-          "points": ["Webライティング", "AI活用術", "クライアント対応"]
+          "points": [
+            "Webライティング",
+            "AI活用術",
+            "クライアント対応"
+          ]
         },
         {
           "type": "content",
           "headline": "After",
-          "points": ["月5万円の副収入", "継続案件を獲得", "自信がついた"]
+          "points": [
+            "月5万円の副収入",
+            "継続案件を獲得",
+            "自信がついた"
+          ]
         },
         {
           "type": "thanks",
@@ -79,17 +103,26 @@
         {
           "type": "content",
           "headline": "コツ①",
-          "points": ["役割を明確に指示", "例: あなたは○○の専門家です"]
+          "points": [
+            "役割を明確に指示",
+            "例: あなたは○○の専門家です"
+          ]
         },
         {
           "type": "content",
           "headline": "コツ②",
-          "points": ["具体的な条件を伝える", "文字数・形式・トーンを指定"]
+          "points": [
+            "具体的な条件を伝える",
+            "文字数・形式・トーンを指定"
+          ]
         },
         {
           "type": "content",
           "headline": "コツ③",
-          "points": ["段階的に質問する", "一度に全部聞かない"]
+          "points": [
+            "段階的に質問する",
+            "一度に全部聞かない"
+          ]
         },
         {
           "type": "thanks",
@@ -112,17 +145,26 @@
         {
           "type": "content",
           "headline": "トレンド①",
-          "points": ["マルチモーダルAI", "テキスト×画像×音声の統合"]
+          "points": [
+            "マルチモーダルAI",
+            "テキスト×画像×音声の統合"
+          ]
         },
         {
           "type": "content",
           "headline": "トレンド②",
-          "points": ["AIエージェント", "自律的にタスクを実行"]
+          "points": [
+            "AIエージェント",
+            "自律的にタスクを実行"
+          ]
         },
         {
           "type": "content",
           "headline": "トレンド③",
-          "points": ["ローカルAI", "プライバシー重視の時代へ"]
+          "points": [
+            "ローカルAI",
+            "プライバシー重視の時代へ"
+          ]
         },
         {
           "type": "thanks",
@@ -145,17 +187,26 @@
         {
           "type": "content",
           "headline": "理由①",
-          "points": ["変化に適応できる", "新しいスキルを常に獲得"]
+          "points": [
+            "変化に適応できる",
+            "新しいスキルを常に獲得"
+          ]
         },
         {
           "type": "content",
           "headline": "理由②",
-          "points": ["チャンスを掴める", "知識が選択肢を広げる"]
+          "points": [
+            "チャンスを掴める",
+            "知識が選択肢を広げる"
+          ]
         },
         {
           "type": "content",
           "headline": "理由③",
-          "points": ["自信がつく", "成長実感がモチベーションに"]
+          "points": [
+            "自信がつく",
+            "成長実感がモチベーションに"
+          ]
         },
         {
           "type": "thanks",
@@ -168,6 +219,6 @@
   ],
   "settings": {
     "rotationMode": "sequential",
-    "lastUsedIndex": 0
+    "lastUsedIndex": 1
   }
 }
