@@ -1,0 +1,93 @@
+name: Generate All Categories
+
+on:
+  # 手動実行のみ
+  workflow_dispatch:
+    inputs:
+      skip_video:
+        description: '動画生成をスキップする（高速化）'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  NODE_VERSION: '20'
+  TZ: 'Asia/Tokyo'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # 全カテゴリ生成には時間がかかる
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgbm-dev \
+            libnss3 \
+            libatk-bridge2.0-0 \
+            libdrm2 \
+            libxkbcommon-x11-0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libcups2 \
+            libasound2t64 \
+            ffmpeg \
+            chromium-browser \
+            fonts-noto-cjk \
+            fonts-noto-cjk-extra
+
+      - name: Generate all categories
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+          SKIP_VIDEO: ${{ github.event.inputs.skip_video }}
+        run: npm run generate:all
+
+      - name: Upload generated content
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-categories-content-${{ github.run_number }}
+          path: |
+            assets/generated/
+          retention-days: 14
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## 🎨 全カテゴリ生成結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### カテゴリ一覧" >> $GITHUB_STEP_SUMMARY
+          echo "| カテゴリ | 日本語名 |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| announcement | お知らせ |" >> $GITHUB_STEP_SUMMARY
+          echo "| development | 開発物 |" >> $GITHUB_STEP_SUMMARY
+          echo "| activity | 活動報告 |" >> $GITHUB_STEP_SUMMARY
+          echo "| education | 教育コラム |" >> $GITHUB_STEP_SUMMARY
+          echo "| ai | AIコラム |" >> $GITHUB_STEP_SUMMARY
+          echo "| business | ビジネスコラム |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 成果物は Artifacts からダウンロードできます" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::全カテゴリ生成が失敗しました。ログを確認してください。"

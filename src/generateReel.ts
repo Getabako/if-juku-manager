@@ -6,6 +6,9 @@
  *
  * または特定のトピックIDを指定:
  * npx tsx src/generateReel.ts --topic=announcement-001
+ *
+ * 動的コンテンツ生成（デフォルト）:
+ * npx tsx src/generateReel.ts
  */
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
@@ -13,9 +16,11 @@ import path from 'path';
 import fs from 'fs/promises';
 import { geminiGenerator } from './lib/geminiImageGenerator.js';
 import { topicSelector } from './lib/topicSelector.js';
+import { contentGenerator } from './lib/contentGenerator.js';
+import { eventManager } from './lib/eventManager.js';
 import { logger } from './lib/logger.js';
 import { PATHS, IMAGE_SIZES } from './lib/config.js';
-import type { ReelGenerationResult, Topic, Slide } from './lib/types.js';
+import type { ReelGenerationResult, Topic, Slide, CategoryType } from './lib/types.js';
 
 // ロゴとサンクス画像のパス
 const LOGO_PATH = path.join(PATHS.rawPhotos, 'logo.png');
@@ -46,6 +51,7 @@ interface GenerateReelOptions {
   topicId?: string;
   duration?: 15 | 30; // 秒数
   compositionId?: 'ReelVideo' | 'ReelVideoLong';
+  category?: CategoryType; // 明示的にカテゴリを指定
 }
 
 /**
@@ -61,28 +67,112 @@ export async function generateReel(
   const compositionId = duration === 30 ? 'ReelVideoLong' : 'ReelVideo';
 
   try {
-    // 1. トピックを選択
-    let topic: Topic;
+    let slides: Slide[];
+    let caption: string;
+    let topicId: string;
+    let category: CategoryType;
+    let imagePrompts: string[] = [];
+
+    // 1. コンテンツを取得（動的 or 静的）
     if (options.topicId) {
+      // 特定のトピックIDが指定された場合は静的トピックを使用
       const found = await topicSelector.getTopicById(options.topicId);
       if (!found) {
         throw new Error(`トピック "${options.topicId}" が見つかりません`);
       }
-      topic = found;
+      slides = found.slides;
+      caption = found.caption;
+      topicId = found.id;
+      category = found.category as CategoryType;
+      logger.info(`静的トピックを使用: ${found.title}`);
     } else {
-      topic = await topicSelector.getNextTopic();
-    }
+      // 動的コンテンツ生成（デフォルト）
+      logger.info('Geminiで動的コンテンツを生成中...');
 
-    logger.info(`選択されたトピック: ${topic.title}`);
+      // カテゴリを決定（指定がなければ曜日ベース）
+      if (options.category) {
+        category = options.category;
+      } else {
+        const todayCategory = await topicSelector.getTodayCategory();
+        category = (todayCategory?.id as CategoryType) || 'ai';
+      }
+
+      logger.info(`カテゴリ: ${category}`);
+
+      // カテゴリに応じた動的コンテンツを生成
+      let content;
+      if (category === 'activity') {
+        const report = await eventManager.getUnusedActivityReport();
+        if (report) {
+          const photoPaths = await eventManager.getPhotoPathsForReport(report);
+          if (photoPaths.length > 0) {
+            content = await contentGenerator.generateContent({
+              category,
+              photos: photoPaths.map(p => ({
+                filename: path.basename(p),
+                filepath: p,
+                event: report.title,
+                people: report.participants,
+                expression: 'unknown',
+                pose: 'unknown',
+                description: report.description,
+                category: 'activity'
+              }))
+            });
+          } else {
+            content = await contentGenerator.generateContent({ category });
+          }
+        } else {
+          content = await contentGenerator.generateContent({ category });
+        }
+      } else if (category === 'announcement') {
+        const announcement = await eventManager.getUnusedAnnouncement();
+        if (announcement) {
+          const topic = await eventManager.generateAnnouncementTopic(announcement);
+          content = {
+            title: topic.title,
+            slides: topic.slides,
+            caption: topic.caption,
+            imagePrompts: []
+          };
+        } else {
+          content = await contentGenerator.generateContent({ category });
+        }
+      } else {
+        content = await contentGenerator.generateContent({ category });
+      }
+
+      slides = content.slides;
+      caption = content.caption;
+      imagePrompts = content.imagePrompts || [];
+      topicId = `reel_${category}_${Date.now()}`;
+      logger.success(`動的コンテンツ生成完了: ${content.title}`);
+    }
 
     // 2. 背景画像を生成（リール用縦長）
     logger.info('リール用背景画像を生成中...');
     const backgroundImages: string[] = [];
 
     // スライド数分の背景を生成（最大3枚）
-    const slidesToUse = topic.slides.slice(0, 3);
-    for (let i = 0; i < slidesToUse.length; i++) {
-      const result = await geminiGenerator.generateReelBackground(topic.category);
+    const slidesToUse = slides.slice(0, 3);
+
+    // コンテンツ固有の画像プロンプトがあれば使用
+    if (imagePrompts.length > 0) {
+      for (let i = 0; i < Math.min(slidesToUse.length, imagePrompts.length); i++) {
+        const prompt = imagePrompts[i];
+        if (prompt && prompt !== '実際の写真を使用するため不要') {
+          const result = await geminiGenerator.generateContentSpecificBackground(prompt, 'reel');
+          if (result.success && result.imagePath) {
+            backgroundImages.push(result.imagePath);
+          }
+        }
+        await delay(1000);
+      }
+    }
+
+    // 足りない分はカテゴリ別のデフォルト背景を生成
+    while (backgroundImages.length < slidesToUse.length) {
+      const result = await geminiGenerator.generateReelBackground(category);
       if (result.success && result.imagePath) {
         backgroundImages.push(result.imagePath);
       }
@@ -125,7 +215,7 @@ export async function generateReel(
     });
 
     // 6. 動画をレンダリング
-    const outputDir = path.join(PATHS.generated, topic.id);
+    const outputDir = path.join(PATHS.generated, topicId);
     await fs.mkdir(outputDir, { recursive: true });
 
     const outputPath = path.join(outputDir, `reel_${duration}s.mp4`);
@@ -146,9 +236,9 @@ export async function generateReel(
     logger.success(`=== リール動画生成完了 (${durationTime}秒) ===`);
 
     const result: ReelGenerationResult = {
-      topicId: topic.id,
+      topicId,
       videoPath: outputPath,
-      caption: topic.caption,
+      caption,
       generatedAt: new Date(),
     };
 

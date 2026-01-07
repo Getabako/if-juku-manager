@@ -9,6 +9,7 @@
     "dev": "tsx src/index.ts",
     "generate:carousel": "tsx src/generateCarousel.ts",
     "generate:reel": "tsx src/generateReel.ts",
+    "generate:all": "tsx src/generateAllCategories.ts",
     "post:instagram": "tsx src/postToInstagram.ts",
     "daily:morning": "tsx src/workflows/dailyMorning.ts",
     "daily:evening": "tsx src/workflows/dailyEvening.ts",
