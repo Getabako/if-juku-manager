@@ -14,7 +14,12 @@
     "daily:morning": "tsx src/workflows/dailyMorning.ts",
     "daily:evening": "tsx src/workflows/dailyEvening.ts",
     "remotion:preview": "remotion preview src/remotion/index.ts",
-    "remotion:render": "remotion render src/remotion/index.ts ReelVideo out/reel.mp4"
+    "remotion:render": "remotion render src/remotion/index.ts ReelVideo out/reel.mp4",
+    "fetch:facebook": "tsx src/fetchFacebookPosts.ts",
+    "fetch:x": "tsx src/fetchXPosts.ts",
+    "content:auth": "tsx src/generatePersonalizedContent.ts auth",
+    "content:status": "tsx src/generatePersonalizedContent.ts status",
+    "content:generate": "tsx src/generatePersonalizedContent.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
