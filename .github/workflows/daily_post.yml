@@ -7,19 +7,25 @@ on:
       workflow_type:
         description: '実行するワークフロー'
         required: true
-        default: 'both'
+        default: 'all'
         type: choice
         options:
-          - both
+          - all
           - morning
           - evening
+          - activity
+          - dev
 
   # スケジュール実行（UTC時間で指定）
-  # 日本時間 09:00 = UTC 00:00
-  # 日本時間 20:00 = UTC 11:00
+  # 日本時間 07:00 = UTC 22:00 (前日) - 活動系投稿
+  # 日本時間 09:00 = UTC 00:00 - 朝のカルーセル
+  # 日本時間 12:00 = UTC 03:00 - 開発系投稿
+  # 日本時間 20:00 = UTC 11:00 - 夜のリール
   schedule:
-    - cron: '0 0 * * *'   # 毎日 09:00 JST (朝の投稿)
-    - cron: '0 11 * * *'  # 毎日 20:00 JST (夜の投稿)
+    - cron: '0 22 * * *'  # 毎日 07:00 JST (活動系投稿)
+    - cron: '0 0 * * *'   # 毎日 09:00 JST (朝のカルーセル)
+    - cron: '0 3 * * *'   # 毎日 12:00 JST (開発系投稿)
+    - cron: '0 11 * * *'  # 毎日 20:00 JST (夜のリール)
 
 env:
   NODE_VERSION: '20'
@@ -67,22 +73,42 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "type=${{ github.event.inputs.workflow_type }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 22 * * *" ]; then
+            echo "type=activity" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 0 * * *" ]; then
             echo "type=morning" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 3 * * *" ]; then
+            echo "type=dev" >> $GITHUB_OUTPUT
           else
             echo "type=evening" >> $GITHUB_OUTPUT
           fi
 
+      - name: Run Activity Post Workflow
+        if: steps.workflow.outputs.type == 'activity' || steps.workflow.outputs.type == 'all'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: npm run daily:activity
+
       - name: Run Morning Workflow (Carousel)
-        if: steps.workflow.outputs.type == 'morning' || steps.workflow.outputs.type == 'both'
+        if: steps.workflow.outputs.type == 'morning' || steps.workflow.outputs.type == 'all'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
         run: npm run daily:morning
 
+      - name: Run Dev Post Workflow
+        if: steps.workflow.outputs.type == 'dev' || steps.workflow.outputs.type == 'all'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: npm run daily:dev
+
       - name: Run Evening Workflow (Reel)
-        if: steps.workflow.outputs.type == 'evening' || steps.workflow.outputs.type == 'both'
+        if: steps.workflow.outputs.type == 'evening' || steps.workflow.outputs.type == 'all'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
@@ -104,14 +130,12 @@ jobs:
           git config --local user.name "github-actions[bot]"
 
           # 投稿履歴ファイルが変更されていればコミット
-          if [ -f "data/post-history.json" ]; then
-            git add data/post-history.json
-            if git diff --staged --quiet; then
-              echo "No changes to commit"
-            else
-              git commit -m "Update post history - $(date '+%Y-%m-%d %H:%M')"
-              git push
-            fi
+          git add data/*.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update post history - $(date '+%Y-%m-%d %H:%M')"
+            git push
           fi
 
       - name: Notify on failure

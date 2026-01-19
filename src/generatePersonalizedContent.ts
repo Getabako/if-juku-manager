@@ -1,9 +1,8 @@
 #!/usr/bin/env npx tsx
 /**
- * パーソナライズドコンテンツ生成
+ * パーソナライズドコンテンツ生成CLI
  *
- * NotebookLMに保存された高崎さんの投稿データを参照し、
- * 文体を真似たInstagram/Xコンテンツを生成します。
+ * 高崎翔太の文体を真似たInstagram/Xコンテンツを生成
  *
  * 使用方法:
  *   # Instagram投稿を生成
@@ -12,21 +11,23 @@
  *   # X投稿を生成
  *   npx tsx src/generatePersonalizedContent.ts x --topic "新機能リリース"
  *
- * 事前準備:
- *   1. Facebook/X投稿を取得: npm run fetch:facebook
- *   2. NotebookLMにMarkdownをアップロード
- *   3. NotebookLM認証: npm run notebooklm:auth
+ *   # カルーセル投稿を生成
+ *   npx tsx src/generatePersonalizedContent.ts carousel --topic "AIの活用法" --slides 5
  */
+
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 import {
   generateInstagramPost,
   generateXPost,
-  checkAuthStatus,
-  setupAuth,
-  listNotebooks,
-} from './lib/social/notebookLMClient.js';
-import { loadPostsArchive as loadFacebookArchive } from './lib/social/facebookFetcher.js';
-import { loadPostsArchive as loadXArchive } from './lib/social/xFetcher.js';
+  generateCarouselSlides,
+  checkWritingStyle,
+} from './lib/social/contentGenerator.js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const PROFILE_DATA_PATH = path.join(__dirname, '../data/social/facebook_posts_for_notebooklm.md');
 
 async function main() {
   const args = process.argv.slice(2);
@@ -37,54 +38,22 @@ async function main() {
     process.exit(1);
   }
 
-  // 認証状態確認
-  if (command !== 'auth' && command !== 'status') {
-    const isAuth = checkAuthStatus();
-    if (!isAuth) {
-      console.error(`
+  // プロフィールデータの確認
+  if (!fs.existsSync(PROFILE_DATA_PATH)) {
+    console.error(`
 ╔════════════════════════════════════════════════════════════════╗
-║  NotebookLM未認証                                              ║
+║  プロフィールデータが見つかりません                            ║
 ╠════════════════════════════════════════════════════════════════╣
 ║                                                                ║
-║  先に認証を行ってください:                                     ║
-║  npx tsx src/generatePersonalizedContent.ts auth               ║
+║  先にFacebookデータをパースしてください:                       ║
+║  python scripts/parseFacebookExport.py                         ║
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
 `);
-      process.exit(1);
-    }
+    process.exit(1);
   }
 
   switch (command) {
-    case 'auth': {
-      console.log('Starting NotebookLM authentication...');
-      setupAuth();
-      break;
-    }
-
-    case 'status': {
-      const isAuth = checkAuthStatus();
-      const notebooks = listNotebooks();
-      const fbArchive = loadFacebookArchive();
-      const xArchive = loadXArchive();
-
-      console.log(`
-╔════════════════════════════════════════════════════════════════╗
-║  システムステータス                                            ║
-╠════════════════════════════════════════════════════════════════╣
-║                                                                ║
-║  NotebookLM認証: ${isAuth ? '✅ 認証済み' : '❌ 未認証'}                                 ║
-║  ノートブック数: ${String(notebooks.length).padEnd(46)}║
-║                                                                ║
-║  データソース:                                                 ║
-║  - Facebook投稿: ${fbArchive ? `✅ ${fbArchive.total_posts}件` : '❌ 未取得'}                              ║
-║  - X投稿: ${xArchive ? `✅ ${xArchive.total_posts}件` : '❌ 未取得'}                                       ║
-║                                                                ║
-╚════════════════════════════════════════════════════════════════╝
-`);
-      break;
-    }
-
     case 'instagram': {
       const topicIndex = args.indexOf('--topic');
       if (topicIndex === -1 || !args[topicIndex + 1]) {
@@ -93,12 +62,9 @@ async function main() {
       }
 
       const topic = args[topicIndex + 1];
-      const notebookIndex = args.indexOf('--notebook');
-      const notebookId = notebookIndex !== -1 ? args[notebookIndex + 1] : undefined;
+      console.log(`\n🎨 Instagram投稿を生成中: ${topic}\n`);
 
-      console.log(`\nGenerating Instagram post about: ${topic}\n`);
-
-      const post = await generateInstagramPost(topic, notebookId);
+      const post = await generateInstagramPost(topic);
 
       if (post) {
         console.log(`
@@ -115,12 +81,10 @@ ${post.content}
 🏷️ ハッシュタグ:
 ${post.hashtags.join(' ')}
 
-🎨 トーン: ${post.tone}
-
 ╚════════════════════════════════════════════════════════════════╝
 `);
       } else {
-        console.error('Failed to generate post.');
+        console.error('生成に失敗しました');
         process.exit(1);
       }
       break;
@@ -134,12 +98,9 @@ ${post.hashtags.join(' ')}
       }
 
       const topic = args[topicIndex + 1];
-      const notebookIndex = args.indexOf('--notebook');
-      const notebookId = notebookIndex !== -1 ? args[notebookIndex + 1] : undefined;
+      console.log(`\n🐦 X投稿を生成中: ${topic}\n`);
 
-      console.log(`\nGenerating X post about: ${topic}\n`);
-
-      const tweet = await generateXPost(topic, notebookId);
+      const tweet = await generateXPost(topic);
 
       if (tweet) {
         console.log(`
@@ -154,24 +115,93 @@ ${tweet}
 ╚════════════════════════════════════════════════════════════════╝
 `);
       } else {
-        console.error('Failed to generate tweet.');
+        console.error('生成に失敗しました');
         process.exit(1);
       }
       break;
     }
 
-    case 'notebooks': {
-      const notebooks = listNotebooks();
-      console.log('\nNotebookLM ノートブック一覧:\n');
-      if (notebooks.length === 0) {
-        console.log('  (ノートブックが登録されていません)');
-      } else {
-        notebooks.forEach((nb: any, i: number) => {
-          console.log(`  ${i + 1}. ${nb.name || nb.id}`);
-          if (nb.description) console.log(`     ${nb.description}`);
-        });
+    case 'carousel': {
+      const topicIndex = args.indexOf('--topic');
+      if (topicIndex === -1 || !args[topicIndex + 1]) {
+        console.error('Error: --topic オプションが必要です');
+        process.exit(1);
       }
-      console.log('');
+
+      const topic = args[topicIndex + 1];
+      const slidesIndex = args.indexOf('--slides');
+      const slideCount = slidesIndex !== -1 ? parseInt(args[slidesIndex + 1]) : 5;
+
+      console.log(`\n📱 カルーセル投稿を生成中: ${topic} (${slideCount}枚)\n`);
+
+      const slides = await generateCarouselSlides(topic, slideCount);
+
+      if (slides) {
+        console.log(`
+╔════════════════════════════════════════════════════════════════╗
+║  カルーセル投稿案                                              ║
+╠════════════════════════════════════════════════════════════════╣
+`);
+        slides.forEach((slide, i) => {
+          console.log(`📄 スライド ${i + 1}:`);
+          console.log(`   ${slide}\n`);
+        });
+        console.log(`╚════════════════════════════════════════════════════════════════╝`);
+      } else {
+        console.error('生成に失敗しました');
+        process.exit(1);
+      }
+      break;
+    }
+
+    case 'check': {
+      const textIndex = args.indexOf('--text');
+      if (textIndex === -1 || !args[textIndex + 1]) {
+        console.error('Error: --text オプションが必要です');
+        process.exit(1);
+      }
+
+      const text = args[textIndex + 1];
+      console.log(`\n📊 文体チェック中...\n`);
+
+      const result = await checkWritingStyle(text);
+
+      console.log(`
+╔════════════════════════════════════════════════════════════════╗
+║  文体チェック結果                                              ║
+╠════════════════════════════════════════════════════════════════╣
+
+スコア: ${result.score}/100
+
+フィードバック:
+${result.feedback}
+
+╚════════════════════════════════════════════════════════════════╝
+`);
+      break;
+    }
+
+    case 'status': {
+      const exists = fs.existsSync(PROFILE_DATA_PATH);
+      let postCount = 0;
+
+      if (exists) {
+        const content = fs.readFileSync(PROFILE_DATA_PATH, 'utf-8');
+        const match = content.match(/投稿数\*\*: (\d+)/);
+        if (match) postCount = parseInt(match[1]);
+      }
+
+      console.log(`
+╔════════════════════════════════════════════════════════════════╗
+║  システムステータス                                            ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  プロフィールデータ: ${exists ? '✅ 読み込み済み' : '❌ 未設定'}                        ║
+║  投稿サンプル数: ${String(postCount).padEnd(47)}║
+║  Gemini API: ${process.env.GEMINI_API_KEY ? '✅ 設定済み' : '❌ 未設定'}                               ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+`);
       break;
     }
 
@@ -189,24 +219,27 @@ function showHelp() {
 ║                                                                ║
 ║  コマンド:                                                     ║
 ║                                                                ║
-║  auth       NotebookLM認証（ブラウザが開きます）               ║
 ║  status     システムステータス確認                             ║
-║  notebooks  登録済みノートブック一覧                           ║
 ║                                                                ║
 ║  instagram  Instagram投稿を生成                                ║
 ║             --topic <topic>    トピック（必須）                ║
-║             --notebook <id>    ノートブックID                  ║
 ║                                                                ║
 ║  x          X(Twitter)投稿を生成                               ║
 ║             --topic <topic>    トピック（必須）                ║
-║             --notebook <id>    ノートブックID                  ║
 ║                                                                ║
-║  セットアップ手順:                                             ║
-║  1. npm run fetch:facebook    # Facebook投稿を取得             ║
-║  2. NotebookLMに以下をアップロード:                            ║
-║     data/social/facebook_posts_for_notebooklm.md               ║
-║  3. npm run content:auth      # NotebookLM認証                 ║
-║  4. npm run content:generate instagram --topic "トピック"      ║
+║  carousel   カルーセル投稿を生成                               ║
+║             --topic <topic>    トピック（必須）                ║
+║             --slides <num>     スライド数（デフォルト: 5）     ║
+║                                                                ║
+║  check      文体チェック                                       ║
+║             --text <text>      チェックするテキスト            ║
+║                                                                ║
+║  例:                                                           ║
+║    npx tsx src/generatePersonalizedContent.ts status           ║
+║    npx tsx src/generatePersonalizedContent.ts instagram \\      ║
+║        --topic "AIを使った業務効率化"                          ║
+║    npx tsx src/generatePersonalizedContent.ts x \\              ║
+║        --topic "新しいツールをリリースしました"                ║
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
 `);
