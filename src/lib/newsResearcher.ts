@@ -2,7 +2,10 @@
  * 最新ニュースリサーチモジュール
  * リアルタイムでWeb検索を行い、最新情報を取得
  * 必ず毎回の投稿生成時に実行すること
+ *
+ * 【重要】新しいGoogle GenAI SDKを使用してGoogle Searchグラウンディングを実行
  */
+import { GoogleGenAI } from '@google/genai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getConfig } from './config.js';
 import { logger } from './logger.js';
@@ -64,37 +67,27 @@ interface SearchResult {
 }
 
 export class NewsResearcher {
-  private genAI: GoogleGenerativeAI;
+  // 新しいSDK（グラウンディング用）
+  private newGenAI: GoogleGenAI;
+  // 旧SDK（通常生成用・フォールバック）
+  private oldGenAI: GoogleGenerativeAI;
   private model: any;
-  private groundingModel: any;
 
   constructor() {
     const config = getConfig();
-    this.genAI = new GoogleGenerativeAI(config.geminiApiKey);
 
-    // 通常の生成用モデル
-    this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
-    });
+    // 新しいSDK: Google Searchグラウンディング対応
+    this.newGenAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
-    // Google Search Grounding を有効にしたモデル
-    // 【重要】これにより最新情報をリアルタイムでWeb検索できる
-    this.groundingModel = this.genAI.getGenerativeModel({
+    // 旧SDK: 通常の生成用（フォールバック）
+    this.oldGenAI = new GoogleGenerativeAI(config.geminiApiKey);
+    this.model = this.oldGenAI.getGenerativeModel({
       model: 'gemini-2.0-flash-exp',
-      tools: [{
-        googleSearchRetrieval: {
-          dynamicRetrievalConfig: {
-            mode: 'MODE_DYNAMIC',
-            dynamicThreshold: 0.3, // 低い閾値で積極的に検索
-          },
-        },
-      }],
     });
   }
 
   /**
-   * Geminiのグラウンディング機能で最新情報を検索
-   * 【重要】googleSearchRetrieval を使用してリアルタイムWeb検索
+   * 新しいSDKでGoogle Searchグラウンディングを使用して最新情報を検索
    */
   private async searchWithGrounding(query: string): Promise<string> {
     const today = new Date().toLocaleDateString('ja-JP', {
@@ -117,25 +110,32 @@ export class NewsResearcher {
 4. 情報源URL`;
 
     try {
-      // グラウンディング機能を使用して検索
-      const result = await this.groundingModel.generateContent(prompt);
-      const response = await result.response;
+      // 新SDKでGoogle Searchグラウンディングを使用
+      const response = await this.newGenAI.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+        },
+      });
 
-      // グラウンディングメタデータを確認（デバッグ用）
-      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-      if (groundingMetadata?.searchEntryPoint) {
-        logger.info(`Google検索を実行: ${groundingMetadata.searchEntryPoint.renderedContent?.slice(0, 100) || 'OK'}`);
+      // グラウンディングが成功したか確認
+      if (response.candidates?.[0]?.groundingMetadata) {
+        logger.info(`Google検索グラウンディング成功`);
       }
 
-      return response.text();
-    } catch (error) {
-      logger.warn(`検索失敗（グラウンディング）: ${query}`);
-      // フォールバック: 通常モデルで試行
+      return response.text || '';
+    } catch (error: any) {
+      logger.warn(`グラウンディング検索失敗: ${query} - ${error.message || error}`);
+
+      // フォールバック: 旧SDKで通常生成
       try {
+        logger.info('フォールバック: 通常モデルで生成');
         const fallbackResult = await this.model.generateContent(prompt);
         const fallbackResponse = await fallbackResult.response;
         return fallbackResponse.text();
-      } catch {
+      } catch (fallbackError) {
+        logger.error('フォールバックも失敗');
         return '';
       }
     }
@@ -153,19 +153,20 @@ export class NewsResearcher {
     const searchResults: SearchResult[] = [];
     const rawTexts: string[] = [];
 
-    // 複数のクエリで検索
-    for (const query of queries.slice(0, 3)) { // 最初の3つのクエリを使用
+    // 複数のクエリで検索（各クエリ間に少し間隔を空ける）
+    for (const query of queries.slice(0, 3)) {
       logger.info(`検索中: ${query}`);
       const result = await this.searchWithGrounding(query);
       if (result) {
         rawTexts.push(result);
-        // 簡易的にSearchResultに変換
         searchResults.push({
           title: query,
           snippet: result.slice(0, 500),
           url: '',
         });
       }
+      // API制限回避のため少し待機
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     if (rawTexts.length === 0) {
@@ -295,10 +296,14 @@ ${combinedText}
 - 抽象的な説明ではなく、数値やデータに基づいた情報を重視してください`;
 
     try {
-      // グラウンディング機能を使用
-      const result = await this.groundingModel.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
+      const response = await this.newGenAI.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+        },
+      });
+      return response.text || '';
     } catch (error) {
       logger.warn(`深掘りリサーチ失敗: ${topic}`);
       return '';

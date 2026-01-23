@@ -29,6 +29,7 @@
     "content:generate": "tsx src/generatePersonalizedContent.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.38.0",
     "@google/generative-ai": "^0.21.0",
     "@remotion/bundler": "^4.0.0",
     "@remotion/cli": "^4.0.0",

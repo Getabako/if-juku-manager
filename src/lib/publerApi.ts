@@ -73,8 +73,9 @@ export class PublerApi {
 
   /**
    * ジョブステータスを確認（ポーリング）
+   * maxAttemptsを60に増加（120秒待機）- 5枚アップロード対応
    */
-  private async waitForJob(jobId: string, maxAttempts = 30): Promise<JobStatus> {
+  private async waitForJob(jobId: string, maxAttempts = 60): Promise<JobStatus> {
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2秒待機
 
