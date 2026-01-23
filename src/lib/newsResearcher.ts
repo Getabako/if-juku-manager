@@ -9,42 +9,45 @@ import { logger } from './logger.js';
 import type { CategoryType } from './types.js';
 import type { NewsInfo } from './blogGenerator.js';
 
-// カテゴリごとの検索キーワード
+// 現在の年を取得（検索クエリで使用）
+const CURRENT_YEAR = new Date().getFullYear();
+
+// カテゴリごとの検索キーワード（動的に現在年を使用）
 const CATEGORY_SEARCH_QUERIES: Record<CategoryType, string[]> = {
   ai: [
-    '最新 AI ニュース 2025',
-    'ChatGPT Claude Gemini 新機能',
-    '生成AI 企業活用 事例',
-    'AIエージェント 最新動向',
-    'OpenAI Anthropic Google AI 発表',
+    `最新 AI ニュース ${CURRENT_YEAR}年`,
+    `ChatGPT Claude Gemini 新機能 ${CURRENT_YEAR}`,
+    `生成AI 企業活用 事例 ${CURRENT_YEAR}`,
+    `AIエージェント 最新動向 ${CURRENT_YEAR}`,
+    `OpenAI Anthropic Google AI 発表 ${CURRENT_YEAR}年1月`,
   ],
   business: [
-    'AI ビジネス活用 成功事例 2025',
-    'DX推進 企業 最新',
-    'スタートアップ AI 資金調達',
-    'ビジネス 生産性向上 AI',
+    `AI ビジネス活用 成功事例 ${CURRENT_YEAR}`,
+    `DX推進 企業 最新 ${CURRENT_YEAR}`,
+    `スタートアップ AI 資金調達 ${CURRENT_YEAR}`,
+    `ビジネス 生産性向上 AI ${CURRENT_YEAR}`,
   ],
   education: [
-    'AI 教育 プログラミング教室 最新',
-    '子供 プログラミング学習 トレンド',
-    'STEM教育 日本 2025',
-    'AI時代 教育 変化',
+    `AI 教育 プログラミング教室 最新 ${CURRENT_YEAR}`,
+    `子供 プログラミング学習 トレンド ${CURRENT_YEAR}`,
+    `STEM教育 日本 ${CURRENT_YEAR}`,
+    `AI時代 教育 変化 ${CURRENT_YEAR}`,
   ],
   development: [
-    'プログラミング 最新トレンド 2025',
-    'GitHub Copilot 新機能',
-    'AIコーディング ツール 比較',
-    'ソフトウェア開発 生産性 AI',
+    `プログラミング 最新トレンド ${CURRENT_YEAR}`,
+    `GitHub Copilot 新機能 ${CURRENT_YEAR}`,
+    `AIコーディング ツール 比較 ${CURRENT_YEAR}`,
+    `ソフトウェア開発 生産性 AI ${CURRENT_YEAR}`,
   ],
   activity: [
-    'eスポーツ 子供 教育',
-    'プログラミング イベント 2025',
-    'IT教室 イベント 最新',
+    `eスポーツ 子供 教育 ${CURRENT_YEAR}`,
+    `プログラミング イベント ${CURRENT_YEAR}`,
+    `IT教室 イベント 最新 ${CURRENT_YEAR}`,
   ],
   announcement: [
-    'AI イベント セミナー 2025',
-    'プログラミング教室 最新情報',
-    'IT教育 展示会',
+    `AI イベント セミナー ${CURRENT_YEAR}`,
+    `プログラミング教室 最新情報 ${CURRENT_YEAR}`,
+    `IT教育 展示会 ${CURRENT_YEAR}`,
   ],
 };
 
@@ -63,38 +66,78 @@ interface SearchResult {
 export class NewsResearcher {
   private genAI: GoogleGenerativeAI;
   private model: any;
+  private groundingModel: any;
 
   constructor() {
     const config = getConfig();
     this.genAI = new GoogleGenerativeAI(config.geminiApiKey);
-    // Grounding with Google Searchを使用
+
+    // 通常の生成用モデル
     this.model = this.genAI.getGenerativeModel({
       model: 'gemini-2.0-flash-exp',
+    });
+
+    // Google Search Grounding を有効にしたモデル
+    // 【重要】これにより最新情報をリアルタイムでWeb検索できる
+    this.groundingModel = this.genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      tools: [{
+        googleSearchRetrieval: {
+          dynamicRetrievalConfig: {
+            mode: 'MODE_DYNAMIC',
+            dynamicThreshold: 0.3, // 低い閾値で積極的に検索
+          },
+        },
+      }],
     });
   }
 
   /**
    * Geminiのグラウンディング機能で最新情報を検索
+   * 【重要】googleSearchRetrieval を使用してリアルタイムWeb検索
    */
   private async searchWithGrounding(query: string): Promise<string> {
-    const prompt = `以下のトピックについて、最新の情報を調べて詳細に報告してください。
-情報は必ず2024年以降の最新のものを含めてください。
+    const today = new Date().toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const prompt = `今日は${today}です。
+
+以下のトピックについて、Google検索を使って最新の情報を調べて詳細に報告してください。
+【重要】必ず${CURRENT_YEAR}年の最新情報を検索してください。古い情報は使用しないでください。
 
 トピック: ${query}
 
 以下の形式で報告してください：
-1. 最新ニュースの見出し（具体的に）
+1. 最新ニュースの見出し（具体的に、日付も含めて）
 2. 詳細情報（数値やデータを含む）
 3. 影響や意味（業界への影響）
-4. 情報源（可能であればURLも）`;
+4. 情報源URL`;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      // グラウンディング機能を使用して検索
+      const result = await this.groundingModel.generateContent(prompt);
       const response = await result.response;
+
+      // グラウンディングメタデータを確認（デバッグ用）
+      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+      if (groundingMetadata?.searchEntryPoint) {
+        logger.info(`Google検索を実行: ${groundingMetadata.searchEntryPoint.renderedContent?.slice(0, 100) || 'OK'}`);
+      }
+
       return response.text();
     } catch (error) {
-      logger.warn(`検索失敗: ${query}`);
-      return '';
+      logger.warn(`検索失敗（グラウンディング）: ${query}`);
+      // フォールバック: 通常モデルで試行
+      try {
+        const fallbackResult = await this.model.generateContent(prompt);
+        const fallbackResponse = await fallbackResult.response;
+        return fallbackResponse.text();
+      } catch {
+        return '';
+      }
     }
   }
 
@@ -152,13 +195,21 @@ export class NewsResearcher {
 
     const combinedText = rawTexts.join('\n\n---\n\n');
 
-    const prompt = `以下の検索結果を分析し、Instagram投稿に最適な1つのトピックを選び、構造化された情報を抽出してください。
+    const today = new Date().toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const prompt = `今日は${today}です。
+
+以下の検索結果を分析し、Instagram投稿に最適な1つのトピックを選び、構造化された情報を抽出してください。
 
 【検索結果】
 ${combinedText}
 
 【選定基準】
-1. 最新（2024年以降）で、今知るべき重要な情報
+1. 【最重要】${CURRENT_YEAR}年の最新情報を優先（古い情報は絶対に選ばない）
 2. 具体的な数値やデータが含まれている
 3. ビジネスや教育に関連性がある
 4. if塾（プログラミング教室・AI開発）の視点で語れる
@@ -181,7 +232,10 @@ ${combinedText}
   "sources": ["情報源URL1", "情報源URL2"]
 }
 
-重要: 抽象的な表現ではなく、必ず具体的な数値やデータを含めてください。`;
+【重要】
+- 抽象的な表現ではなく、必ず具体的な数値やデータを含めてください
+- ${CURRENT_YEAR}年より前の古い情報（GPT-4など過去のリリース）は選ばないでください
+- 最新のニュース（直近1週間以内）を優先してください`;
 
     try {
       const result = await this.model.generateContent(prompt);
@@ -214,23 +268,35 @@ ${combinedText}
   }
 
   /**
-   * 特定のトピックについて深掘りリサーチ
+   * 特定のトピックについて深掘りリサーチ（グラウンディング使用）
    */
   async deepDiveResearch(topic: string): Promise<string> {
     logger.info(`深掘りリサーチ: ${topic}`);
 
-    const prompt = `「${topic}」について、以下の観点から詳細に調べてください：
+    const today = new Date().toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
 
-1. 最新の動向（2024年以降）
+    const prompt = `今日は${today}です。
+
+「${topic}」について、Google検索を使って以下の観点から最新情報を詳細に調べてください：
+
+1. 最新の動向（${CURRENT_YEAR}年、特に直近1ヶ月の情報）
 2. 具体的な数値やデータ
 3. 成功事例や活用事例
 4. 課題や注意点
 5. 今後の展望
 
-具体的で詳細な情報を提供してください。抽象的な説明ではなく、数値やデータに基づいた情報を重視してください。`;
+【重要】
+- 古い情報ではなく、${CURRENT_YEAR}年の最新情報を必ず含めてください
+- 具体的で詳細な情報を提供してください
+- 抽象的な説明ではなく、数値やデータに基づいた情報を重視してください`;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      // グラウンディング機能を使用
+      const result = await this.groundingModel.generateContent(prompt);
       const response = await result.response;
       return response.text();
     } catch (error) {
