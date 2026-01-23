@@ -119,7 +119,10 @@ export class TrendResearcher {
     category: CategoryType,
     trend: TrendInfo
   ): Promise<DetailedContent> {
-    const prompt = `あなたはSNSマーケティングのプロです。
+    // 文体ルールを取得
+    const styleInstructions = await designRules.getContentStyleInstructions();
+
+    const prompt = `あなたは企業の広報担当者です。
 以下のトレンド情報に基づいて、Instagram投稿用の詳細コンテンツを生成してください。
 
 【トレンド情報】
@@ -128,11 +131,13 @@ export class TrendResearcher {
 なぜトレンド: ${trend.whyTrending}
 重要ポイント: ${trend.keyPoints.join(', ')}
 
+${styleInstructions}
+
 【コンテンツ要件】
-1. Z世代に刺さる具体的で実用的な内容
-2. 「保存したい」「シェアしたい」と思わせる価値
-3. 5枚のスライド構成（表紙→内容3枚→サンクス）
-4. 各スライドに最適な画像の詳細プロンプト
+1. 具体的で実用的な情報を提供する
+2. 「保存したい」「シェアしたい」と思わせる価値ある内容
+3. 4枚のスライド構成（表紙→内容3枚）
+4. 落ち着いた広報向けの文体を使用すること
 
 【重要】画像プロンプトは非常に具体的に：
 - 「AIコード」ではなく「Cursorの画面にPythonコードが表示され、AIサジェスションがハイライト」
@@ -141,12 +146,12 @@ export class TrendResearcher {
 
 【出力形式（JSON）】
 {
-  "title": "投稿タイトル",
-  "hook": "最初の1行で興味を引くフレーズ",
+  "title": "投稿タイトル（絵文字禁止）",
+  "hook": "最初の1行で興味を引くフレーズ（絵文字禁止）",
   "slides": [
     {
       "type": "cover",
-      "headline": "キャッチーな見出し（15文字以内）",
+      "headline": "キャッチーな見出し（15文字以内、絵文字禁止）",
       "subtext": "サブテキスト"
     },
     {
@@ -163,14 +168,9 @@ export class TrendResearcher {
       "type": "content",
       "headline": "見出し",
       "points": ["ポイント1", "ポイント2", "ポイント3"]
-    },
-    {
-      "type": "thanks",
-      "headline": "保存して試してみて！",
-      "cta": "アクション誘導"
     }
   ],
-  "caption": "Instagram用キャプション（絵文字、改行、ハッシュタグ込み300文字程度）",
+  "caption": "Instagram用キャプション（絵文字禁止、改行、ハッシュタグ込み300文字程度）",
   "imagePrompts": [
     "表紙用：具体的な画像シーンの描写（例：MacBook Proの画面にClaude AIのチャット画面、暗い部屋でモニターの光が反射）",
     "内容1用：具体的な画像シーンの描写",

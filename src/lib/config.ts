@@ -42,6 +42,25 @@ export function getConfig(): AppConfig {
   };
 }
 
+// Publer API設定
+export interface PublerConfig {
+  apiKey: string;
+  workspaceId: string;
+  accountId: string;
+}
+
+export function getPublerConfig(): PublerConfig {
+  const apiKey = process.env.PUBLER_API_KEY;
+  const workspaceId = process.env.PUBLER_WORKSPACE_ID;
+  const accountId = process.env.PUBLER_ACCOUNT_ID;
+
+  if (!apiKey || !workspaceId || !accountId) {
+    throw new Error('Publer設定が不完全です。PUBLER_API_KEY, PUBLER_WORKSPACE_ID, PUBLER_ACCOUNT_ID を.envファイルに設定してください。');
+  }
+
+  return { apiKey, workspaceId, accountId };
+}
+
 // 画像サイズ定数
 export const IMAGE_SIZES = {
   carousel: {

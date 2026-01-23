@@ -12,6 +12,20 @@ export interface DesignRules {
   version: string;
   lastUpdated: string;
   description: string;
+  contentStyle: {
+    noEmoji: {
+      enabled: boolean;
+      description: string;
+      rules: string[];
+    };
+    tone: {
+      style: string;
+      description: string;
+      rules: string[];
+      avoidWords: string[];
+      preferWords: string[];
+    };
+  };
   imageGeneration: {
     strictNoText: {
       enabled: boolean;
@@ -167,6 +181,51 @@ class DesignRulesManager {
   async getTrendResearchRequirements(): Promise<string[]> {
     const rules = await this.loadRules();
     return rules.trendResearch.requirements;
+  }
+
+  /**
+   * コンテンツスタイルルールを取得
+   */
+  async getContentStyleRules(): Promise<DesignRules['contentStyle']> {
+    const rules = await this.loadRules();
+    return rules.contentStyle;
+  }
+
+  /**
+   * 避けるべき言葉のリストを取得
+   */
+  async getAvoidWords(): Promise<string[]> {
+    const rules = await this.loadRules();
+    return rules.contentStyle.tone.avoidWords;
+  }
+
+  /**
+   * 推奨する言葉のリストを取得
+   */
+  async getPreferWords(): Promise<string[]> {
+    const rules = await this.loadRules();
+    return rules.contentStyle.tone.preferWords;
+  }
+
+  /**
+   * コンテンツ生成用のスタイル指示を取得
+   */
+  async getContentStyleInstructions(): Promise<string> {
+    const rules = await this.loadRules();
+    const style = rules.contentStyle;
+
+    return `
+【文体ルール - 必ず守ること】
+${style.noEmoji.enabled ? '- 絵文字は使用禁止（タイトル、見出し、本文すべてで禁止）' : ''}
+- 文体: ${style.tone.description}
+${style.tone.rules.map(r => `- ${r}`).join('\n')}
+
+【禁止ワード】以下の言葉は絶対に使用しない:
+${style.tone.avoidWords.join('、')}
+
+【推奨ワード】代わりに以下の言葉を使用する:
+${style.tone.preferWords.join('、')}
+    `.trim();
   }
 
   /**

@@ -122,8 +122,11 @@ export class ContentGenerator {
       return trendResearcher.generateDetailedContent(category, trend);
     }
 
+    // 文体ルールを取得
+    const styleInstructions = await designRules.getContentStyleInstructions();
+
     // 履歴を考慮したプロンプトで生成
-    const prompt = `あなたはSNSマーケティングのプロです。
+    const prompt = `あなたは企業の広報担当者です。
 以下のトレンド情報に基づいて、Instagram投稿用の詳細コンテンツを生成してください。
 
 【トレンド情報】
@@ -134,25 +137,26 @@ export class ContentGenerator {
 
 ${historySummary}
 
+${styleInstructions}
+
 【コンテンツ要件】
-1. Z世代に刺さる具体的で実用的な内容
-2. 「保存したい」「シェアしたい」と思わせる価値
-3. 5枚のスライド構成（表紙→内容3枚→サンクス）
+1. 具体的で実用的な情報を提供する
+2. 「保存したい」「シェアしたい」と思わせる価値ある内容
+3. 4枚のスライド構成（表紙→内容3枚）
 4. 過去の投稿と切り口を変えた新しい視点で作成すること
-5. 各スライドに最適な画像の詳細プロンプト
+5. 落ち着いた広報向けの文体を使用すること
 
 【出力形式（JSON）】
 {
-  "title": "投稿タイトル",
-  "hook": "最初の1行で興味を引くフレーズ",
+  "title": "投稿タイトル（絵文字禁止）",
+  "hook": "最初の1行で興味を引くフレーズ（絵文字禁止）",
   "slides": [
     {"type": "cover", "headline": "キャッチーな見出し", "subtext": "サブテキスト"},
     {"type": "content", "headline": "見出し", "points": ["ポイント1", "ポイント2", "ポイント3"]},
     {"type": "content", "headline": "見出し", "points": ["ポイント1", "ポイント2", "ポイント3"]},
-    {"type": "content", "headline": "見出し", "points": ["ポイント1", "ポイント2", "ポイント3"]},
-    {"type": "thanks", "headline": "保存して試してみて！", "cta": "アクション誘導"}
+    {"type": "content", "headline": "見出し", "points": ["ポイント1", "ポイント2", "ポイント3"]}
   ],
-  "caption": "Instagram用キャプション（絵文字、改行、ハッシュタグ込み300文字程度）",
+  "caption": "Instagram用キャプション（絵文字禁止、改行、ハッシュタグ込み300文字程度）",
   "imagePrompts": ["表紙用", "内容1用", "内容2用", "内容3用"]
 }`;
 

@@ -1,0 +1,223 @@
+name: Daily Genspark Instagram Post
+
+# 【重要】このワークフローは以下の正しいフローを必ず実行する:
+# 1. NotebookLMから文体・事業情報を取得
+# 2. 最新ニュースをリアルタイム検索
+# 3. ブログ記事を生成（必須！スキップ禁止！）
+# 4. ブログからInstagram投稿用コンテンツを作成
+# 5. 画像生成（Genspark NanoBananaPro）
+# 6. FTPにアップロード
+# 7. Publerでスケジュール
+#
+# 【投稿スケジュール】毎日3回投稿:
+# - 9:00 JST (UTC 00:00) → ビジネス (business)
+# - 13:00 JST (UTC 04:00) → 教育 (education)
+# - 18:00 JST (UTC 09:00) → AI (ai)
+
+on:
+  # 手動実行
+  workflow_dispatch:
+    inputs:
+      category:
+        description: '投稿カテゴリ'
+        required: true
+        default: 'ai'
+        type: choice
+        options:
+          - ai
+          - business
+          - education
+          - development
+          - activity
+          - announcement
+
+  # スケジュール実行（毎日3回）
+  schedule:
+    # 9:00 JST = UTC 00:00 → ビジネス
+    - cron: '0 0 * * *'
+    # 13:00 JST = UTC 04:00 → 教育
+    - cron: '0 4 * * *'
+    # 18:00 JST = UTC 09:00 → AI
+    - cron: '0 9 * * *'
+
+env:
+  NODE_VERSION: '20'
+  TZ: 'Asia/Tokyo'
+
+jobs:
+  generate-and-post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install browser dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgbm-dev \
+            libnss3 \
+            libatk-bridge2.0-0 \
+            libdrm2 \
+            libxkbcommon-x11-0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libcups2 \
+            libasound2t64 \
+            chromium-browser \
+            fonts-noto-cjk \
+            fonts-noto-cjk-extra
+
+      # NotebookLMはGitHub Actions上では利用不可（ローカル実行時のみ）
+      # フォールバック情報が自動的に使用される
+
+      - name: Determine category by schedule time
+        id: category
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.category }}" >> $GITHUB_OUTPUT
+            echo "post_time=manual" >> $GITHUB_OUTPUT
+          else
+            # スケジュール実行時は実行時刻でカテゴリを決定
+            # GitHub Actionsのcronスケジュールに基づく
+            # UTC時刻で判定（JSTから-9時間）
+            HOUR_UTC=$(date -u +%H)
+            echo "UTC Hour: $HOUR_UTC"
+
+            case $HOUR_UTC in
+              00|01)
+                # 9:00 JST (UTC 00:00) → ビジネス
+                echo "value=business" >> $GITHUB_OUTPUT
+                echo "post_time=09:00" >> $GITHUB_OUTPUT
+                ;;
+              04|05)
+                # 13:00 JST (UTC 04:00) → 教育
+                echo "value=education" >> $GITHUB_OUTPUT
+                echo "post_time=13:00" >> $GITHUB_OUTPUT
+                ;;
+              09|10)
+                # 18:00 JST (UTC 09:00) → AI
+                echo "value=ai" >> $GITHUB_OUTPUT
+                echo "post_time=18:00" >> $GITHUB_OUTPUT
+                ;;
+              *)
+                # デフォルト（想定外の時間帯）
+                echo "value=ai" >> $GITHUB_OUTPUT
+                echo "post_time=other" >> $GITHUB_OUTPUT
+                ;;
+            esac
+          fi
+
+          echo "=== カテゴリ決定 ==="
+          echo "カテゴリ: $(cat $GITHUB_OUTPUT | grep value | cut -d'=' -f2)"
+          echo "投稿時間: $(cat $GITHUB_OUTPUT | grep post_time | cut -d'=' -f2)"
+
+      - name: Generate and Post
+        env:
+          # API Keys
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GENSPARK_EMAIL: ${{ secrets.GENSPARK_EMAIL }}
+          GENSPARK_PASSWORD: ${{ secrets.GENSPARK_PASSWORD }}
+          # FTP
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_REMOTE_PATH: ${{ secrets.FTP_REMOTE_PATH }}
+          FTP_BASE_URL: ${{ secrets.FTP_BASE_URL }}
+          # Publer
+          PUBLER_API_KEY: ${{ secrets.PUBLER_API_KEY }}
+          PUBLER_WORKSPACE_ID: ${{ secrets.PUBLER_WORKSPACE_ID }}
+          PUBLER_ACCOUNT_ID: ${{ secrets.PUBLER_ACCOUNT_ID }}
+          # NotebookLMはGitHub Actions上では利用不可（フォールバック使用）
+          # ローカル実行時は自動的に検出される
+        run: |
+          echo "=========================================="
+          echo "=== 正しいワークフローを実行 ==="
+          echo "=========================================="
+          echo ""
+          echo "投稿スケジュール: ${{ steps.category.outputs.post_time }} JST"
+          echo "カテゴリ: ${{ steps.category.outputs.value }}"
+          echo ""
+          echo "【重要】以下のステップを必ず実行:"
+          echo "ステップ0: NotebookLMから文体・事業情報を取得（GitHub Actionsではフォールバック使用）"
+          echo "ステップ1: 最新ニュースをリアルタイム検索【最新情報を取得】"
+          echo "ステップ2: ブログ記事を生成【必須・スキップ禁止】"
+          echo "ステップ3: ブログからInstagram要約を生成"
+          echo "ステップ4-8: 画像生成（品質チェック5回） → FTP → Publer"
+          echo ""
+          echo "【投稿スケジュール】"
+          echo "- 9:00 JST → ビジネス (business)"
+          echo "- 13:00 JST → 教育 (education)"
+          echo "- 18:00 JST → AI (ai)"
+          echo ""
+          npm run generate:genspark -- --category=${{ steps.category.outputs.value }} --headless
+
+      - name: Upload generated assets
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: generated-content-${{ steps.category.outputs.value }}-${{ github.run_number }}
+          path: |
+            assets/generated/
+            data/blogs/
+          retention-days: 7
+
+      - name: Commit post history and blogs
+        if: success() && github.event_name == 'schedule'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # 投稿履歴とブログファイルが変更されていればコミット
+          git add data/*.json assets/generated/blogs/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update post history and blog (${{ steps.category.outputs.value }}) - $(date '+%Y-%m-%d %H:%M')"
+            git push
+          fi
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "## Instagram投稿生成完了" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**投稿時間**: ${{ steps.category.outputs.post_time }} JST" >> $GITHUB_STEP_SUMMARY
+          echo "**カテゴリ**: ${{ steps.category.outputs.value }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 投稿スケジュール" >> $GITHUB_STEP_SUMMARY
+          echo "| 時間 | カテゴリ |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 9:00 JST | ビジネス (business) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 13:00 JST | 教育 (education) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 18:00 JST | AI (ai) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行されたステップ" >> $GITHUB_STEP_SUMMARY
+          echo "1. NotebookLMから文体・事業情報を取得" >> $GITHUB_STEP_SUMMARY
+          echo "2. 最新ニュースをリアルタイム検索" >> $GITHUB_STEP_SUMMARY
+          echo "3. ブログ記事を生成" >> $GITHUB_STEP_SUMMARY
+          echo "4. Instagram要約を作成" >> $GITHUB_STEP_SUMMARY
+          echo "5. 画像生成（Genspark NanoBananaPro）+ 品質チェック" >> $GITHUB_STEP_SUMMARY
+          echo "6. FTPにアップロード" >> $GITHUB_STEP_SUMMARY
+          echo "7. Publerでスケジュール" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::ワークフローが失敗しました。ログを確認してください。"
+          echo "## エラー発生" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ワークフローが失敗しました。詳細はログを確認してください。" >> $GITHUB_STEP_SUMMARY

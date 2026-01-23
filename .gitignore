@@ -46,3 +46,19 @@ coverage/
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Genspark browser data (sensitive)
+data/genspark_browser_profile/
+data/genspark_playwright_profile/
+data/genspark_session.json
+data/genspark_state.json
+
+# Claude Code
+.claude/
+
+# Post history (can regenerate)
+data/*-post-history.json
+data/post-history.json
+
+# Generated blogs (large files)
+assets/generated/blogs/
