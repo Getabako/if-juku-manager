@@ -241,58 +241,40 @@ export class ImageQualityEvaluator {
 
   /**
    * 修正プロンプトを生成
+   *
+   * 【重要】リトライ時は指示を積み重ねない
+   * 複雑すぎるプロンプトは画像生成AIを混乱させ、品質が低下する
+   * 最も重要な1つの問題だけに焦点を当てた短い追加指示を使う
    */
   generateFixedPrompt(
     originalPrompt: string,
     checkResult: QualityCheckResult,
     characterFeatures: CharacterFeatures
   ): string {
-    let fixedPrompt = originalPrompt;
-    const additions: string[] = [];
+    // 優先順位: テキスト > キャラクター > 背景
+    // 1つの問題だけを短く指摘（長い指示は逆効果）
 
-    // キャラクター不在の場合
-    if (!checkResult.checks.characterPresent) {
-      additions.push(`【最重要】必ずキャラクターを画像の中央に大きく描くこと。背景のみの画像は禁止。`);
-      additions.push(`キャラクター: ${characterFeatures.description}`);
-    }
+    let prefix = '';
 
-    // キャラクター特徴不一致の場合
-    if (!checkResult.checks.characterFeatures) {
-      additions.push(`【キャラクター特徴を厳守】${characterFeatures.requiredElements.join('、')}を必ず描くこと。`);
-    }
-
-    // 背景が不適切な場合
-    if (!checkResult.checks.backgroundValid) {
-      additions.push(`【背景必須】オフィス環境、テクノロジー要素（ホログラフィック画面、データグラフ、コード画面など）を含む詳細な背景を必ず描くこと。`);
-      additions.push(`背景禁止事項: 真っ白、単色、グラデーションのみ、背景なしは絶対禁止。`);
-    }
-
-    // テキスト不在の場合
+    // テキスト問題が最優先
     if (!checkResult.checks.textPresent) {
-      additions.push(`【テキスト必須】画像内に日本語テキストを必ず大きく表示すること。テキストなしは禁止。`);
+      prefix = '【重要】大きな日本語テキストを画像上部に必ず表示。\n\n';
+    } else if (!checkResult.checks.textComplete) {
+      prefix = '【重要】テキストは画像中央に配置し左右20%余白を確保。見切れ禁止。\n\n';
+    }
+    // キャラクター問題
+    else if (!checkResult.checks.characterPresent) {
+      prefix = '【重要】キャラクターを画像中央に大きく描く。背景のみ禁止。\n\n';
+    } else if (!checkResult.checks.characterFeatures) {
+      const features = characterFeatures.requiredElements.slice(0, 2).join('、');
+      prefix = `【重要】キャラクター特徴: ${features}を必ず描く。\n\n`;
+    }
+    // 背景問題（低優先度）
+    else if (!checkResult.checks.backgroundValid) {
+      prefix = '【重要】背景にPC画面やデータグラフを追加。真っ白禁止。\n\n';
     }
 
-    // テキストが見切れている場合
-    if (!checkResult.checks.textComplete) {
-      additions.push(`【テキスト見切れ禁止】すべてのテキストを画像内に完全に収めること。文字が画像端で途切れないよう、テキストは画像の中央寄りに配置し、左右に十分な余白を取ること。8文字以上のテキストは必ず改行して2行に分けること。テキストサイズは画像幅の80%以内に収めること。`);
-    }
-
-    // 構図が不適切な場合
-    if (!checkResult.checks.compositionValid) {
-      additions.push(`【構図】キャラクター全体が見える構図にすること。見切れや極端に小さい描写は禁止。`);
-    }
-
-    // 修正指示を先頭に追加
-    if (additions.length > 0) {
-      fixedPrompt = `${additions.join('\n')}\n\n${originalPrompt}`;
-    }
-
-    // AIからの修正提案も追加
-    if (checkResult.suggestedFixes.length > 0) {
-      fixedPrompt += `\n\n【追加指示】${checkResult.suggestedFixes.join('。')}`;
-    }
-
-    return fixedPrompt;
+    return prefix + originalPrompt;
   }
 }
 

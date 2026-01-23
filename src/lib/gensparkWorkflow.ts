@@ -393,29 +393,41 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       logger.info(`  - テキスト完全性: ${checkResults.textComplete ? '✓' : '✗ (テキスト見切れ)'}`);
       logger.info(`  - 構図: ${checkResults.compositionValid ? '✓' : '✗'}`);
 
-      // 必須チェック項目（これらが1つでも失敗したら問答無用で不合格）
-      const criticalChecks = {
+      // 必須チェック項目（厳格チェック: テキスト・キャラクター）
+      // 背景は高スコアの場合は許容（リトライで品質が低下するリスクを避けるため）
+      const strictChecks = {
         textPresent: checkResults.textPresent,
-        textComplete: checkResults.textComplete, // テキスト見切れチェック追加
-        backgroundValid: checkResults.backgroundValid,
+        textComplete: checkResults.textComplete,
         characterPresent: checkResults.characterPresent,
         characterFeatures: checkResults.characterFeatures,
       };
 
-      const criticalFailures: string[] = [];
-      if (!criticalChecks.textPresent) criticalFailures.push('テキスト欠落');
-      if (!criticalChecks.textComplete) criticalFailures.push('テキスト見切れ');
-      if (!criticalChecks.backgroundValid) criticalFailures.push('背景欠落');
-      if (!criticalChecks.characterPresent) criticalFailures.push('キャラクター欠落');
-      if (!criticalChecks.characterFeatures) criticalFailures.push('キャラクター特徴不一致');
+      const strictFailures: string[] = [];
+      if (!strictChecks.textPresent) strictFailures.push('テキスト欠落');
+      if (!strictChecks.textComplete) strictFailures.push('テキスト見切れ');
+      if (!strictChecks.characterPresent) strictFailures.push('キャラクター欠落');
+      if (!strictChecks.characterFeatures) strictFailures.push('キャラクター特徴不一致');
 
-      // 必須項目が1つでも失敗していたら問答無用で不合格
+      // 背景のみ失敗で高スコア（>=65）の場合は許容
+      // リトライで品質が低下するリスクを避ける
+      const onlyBackgroundFailed = strictFailures.length === 0 && !checkResults.backgroundValid;
+      if (onlyBackgroundFailed && qualityResult.score >= 65) {
+        logger.warn(`⚠️ 背景のみ不合格だがスコア${qualityResult.score}で許容`);
+        logger.success(`画像 ${slideIndex + 1} 品質チェック条件付き合格（スコア: ${qualityResult.score}）`);
+        return { imagePath, qualityResult };
+      }
+
+      // 厳格チェック項目が失敗している場合
+      const criticalFailures = [...strictFailures];
+      if (!checkResults.backgroundValid) criticalFailures.push('背景欠落');
+
       if (criticalFailures.length > 0) {
-        logger.error(`❌ 必須項目不合格: ${criticalFailures.join('、')}`);
+        logger.error(`❌ 不合格: ${criticalFailures.join('、')}`);
         // スコアに関係なくリトライ必須
         if (attempt < MAX_RETRIES) {
+          // 注意: オリジナルプロンプトをベースに修正（積み重ねない）
           currentPrompt = imageQualityEvaluator.generateFixedPrompt(
-            prompt,
+            prompt, // 常にオリジナルを使用
             qualityResult,
             characterFeatures
           );

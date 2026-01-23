@@ -73,9 +73,10 @@ export class PublerApi {
 
   /**
    * ジョブステータスを確認（ポーリング）
-   * maxAttemptsを60に増加（120秒待機）- 5枚アップロード対応
+   * maxAttemptsを150に増加（300秒＝5分待機）- 5枚バルクアップロード対応
+   * Publerのメディア処理は時間がかかることがある
    */
-  private async waitForJob(jobId: string, maxAttempts = 60): Promise<JobStatus> {
+  private async waitForJob(jobId: string, maxAttempts = 150): Promise<JobStatus> {
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2秒待機
 
@@ -96,41 +97,56 @@ export class PublerApi {
   }
 
   /**
-   * URLから画像をアップロード
+   * URLから画像をアップロード（1枚ずつ順番に処理）
+   * 一括アップロードはPublerの処理が遅くタイムアウトしやすいため、
+   * 1枚ずつアップロードして確実に処理する
    */
   async uploadMediaFromUrls(imageUrls: string[]): Promise<MediaUploadResult[]> {
-    logger.info(`${imageUrls.length}枚の画像をPublerにアップロード中...`);
-
     // サンクス画像を追加
     const allUrls = [...imageUrls, THANKS_IMAGE_URL];
+    logger.info(`${allUrls.length}枚の画像をPublerに1枚ずつアップロード中...`);
 
-    const mediaItems = allUrls.map((url, index) => ({
-      url,
-      name: `slide_${index + 1}`,
-    }));
+    const results: MediaUploadResult[] = [];
 
-    const response = await this.request<{ job_id: string }>('/media/from-url', {
-      method: 'POST',
-      body: JSON.stringify({
-        media: mediaItems,
-        type: 'bulk',
-        direct_upload: false,
-        in_library: true,
-      }),
-    });
+    for (let i = 0; i < allUrls.length; i++) {
+      const url = allUrls[i];
+      logger.info(`画像 ${i + 1}/${allUrls.length} をアップロード中...`);
 
-    logger.info(`メディアアップロードジョブ開始: ${response.job_id}`);
+      try {
+        // 1枚ずつアップロード
+        const response = await this.request<{ job_id: string }>('/media/from-url', {
+          method: 'POST',
+          body: JSON.stringify({
+            media: [{ url, name: `slide_${i + 1}` }],
+            direct_upload: false,
+            in_library: true,
+          }),
+        });
 
-    // ジョブ完了を待機
-    const jobResult = await this.waitForJob(response.job_id);
+        logger.info(`  ジョブID: ${response.job_id}`);
 
-    // payloadが配列の場合（メディアアップロード成功時）
-    if (!Array.isArray(jobResult.payload)) {
-      throw new Error('メディアアップロード結果が取得できませんでした');
+        // ジョブ完了を待機（1枚なので30秒で十分）
+        const jobResult = await this.waitForJob(response.job_id, 15);
+
+        if (Array.isArray(jobResult.payload) && jobResult.payload.length > 0) {
+          results.push(jobResult.payload[0]);
+          logger.info(`  ✓ 画像 ${i + 1} アップロード完了`);
+        } else {
+          throw new Error(`画像 ${i + 1} のアップロード結果が取得できませんでした`);
+        }
+
+        // API制限回避のため少し待機
+        if (i < allUrls.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        logger.error(`画像 ${i + 1} のアップロードに失敗: ${error}`);
+        throw error;
+      }
     }
 
-    logger.info(`${jobResult.payload.length}枚のメディアをアップロード完了`);
-    return jobResult.payload;
+    logger.info(`${results.length}枚のメディアをアップロード完了`);
+    return results;
   }
 
   /**
