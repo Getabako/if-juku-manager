@@ -145,25 +145,101 @@ export class GensparkPlaywrightGenerator {
     await fs.mkdir(BROWSER_PROFILE_DIR, { recursive: true });
     await fs.mkdir(DOWNLOAD_DIR, { recursive: true });
 
-    // 永続コンテキストでブラウザ起動（本物のChromeを使用）
-    this.context = await chromium.launchPersistentContext(BROWSER_PROFILE_DIR, {
-      channel: 'chrome', // 本物のChromeを使用
+    // 永続コンテキストでブラウザ起動
+    // GitHub Actionsではchromeチャンネルが使えないため、環境に応じて切り替え
+    const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+    const contextOptions: Parameters<typeof chromium.launchPersistentContext>[1] = {
       headless,
-      args: BROWSER_ARGS,
+      args: [
+        ...BROWSER_ARGS,
+        // ヘッドレス検出回避の追加オプション
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--allow-running-insecure-content',
+      ],
       userAgent: USER_AGENT,
       viewport: { width: 1920, height: 1080 },
       ignoreDefaultArgs: ['--enable-automation'],
       acceptDownloads: true,
-    });
+    };
+
+    // ローカル環境では本物のChromeを使用
+    if (!isCI) {
+      (contextOptions as Record<string, unknown>).channel = 'chrome';
+    }
+
+    this.context = await chromium.launchPersistentContext(BROWSER_PROFILE_DIR, contextOptions);
 
     // 既存のページを使用するか、新しいページを作成
     const pages = this.context.pages();
     this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
 
+    // ヘッドレス検出回避のためのステルススクリプトを注入
+    await this.injectStealthScripts();
+
     // state.jsonからCookieを手動注入（ハイブリッド認証）
     await this.injectCookies();
 
     logger.info('Genspark Playwrightブラウザを起動しました');
+  }
+
+  /**
+   * ヘッドレス検出を回避するためのステルススクリプトを注入
+   */
+  private async injectStealthScripts(): Promise<void> {
+    if (!this.page) return;
+
+    // ページごとにステルススクリプトを実行
+    await this.context!.addInitScript(() => {
+      // WebDriver検出を回避
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      });
+
+      // Chrome検出を回避
+      (window as unknown as Record<string, unknown>).chrome = {
+        runtime: {},
+        loadTimes: () => ({}),
+        csi: () => ({}),
+        app: {},
+      };
+
+      // Permissions API のモック
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters: PermissionDescriptor) => {
+        if (parameters.name === 'notifications') {
+          return Promise.resolve({ state: 'prompt', onchange: null } as PermissionStatus);
+        }
+        return originalQuery.call(window.navigator.permissions, parameters);
+      };
+
+      // plugins配列を追加（ヘッドレスでは空になりがち）
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [
+          { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+          { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+          { name: 'Native Client', filename: 'internal-nacl-plugin' },
+        ],
+      });
+
+      // languages配列を設定
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['ja-JP', 'ja', 'en-US', 'en'],
+      });
+
+      // hardwareConcurrencyを現実的な値に
+      Object.defineProperty(navigator, 'hardwareConcurrency', {
+        get: () => 8,
+      });
+
+      // deviceMemoryを現実的な値に
+      Object.defineProperty(navigator, 'deviceMemory', {
+        get: () => 8,
+      });
+    });
+
+    logger.debug('ステルススクリプトを注入しました');
   }
 
   /**

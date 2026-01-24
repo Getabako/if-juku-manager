@@ -79,7 +79,8 @@ jobs:
             libasound2t64 \
             chromium-browser \
             fonts-noto-cjk \
-            fonts-noto-cjk-extra
+            fonts-noto-cjk-extra \
+            xvfb
 
       - name: Restore Genspark authentication state
         env:
@@ -176,7 +177,9 @@ jobs:
           echo "- 13:00 JST → 教育 (education)"
           echo "- 18:00 JST → AI (ai)"
           echo ""
-          npm run generate:genspark -- --category=${{ steps.category.outputs.value }} --headless
+          # xvfbで仮想ディスプレイを使用（ヘッドレス検出を回避）
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            npm run generate:genspark -- --category=${{ steps.category.outputs.value }}
 
       - name: Upload generated assets
         uses: actions/upload-artifact@v4
