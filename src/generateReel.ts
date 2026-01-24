@@ -235,9 +235,7 @@ export async function generateReel(
       serveUrl: bundleLocation,
       id: compositionId,
       inputProps,
-      chromiumOptions: BROWSER_EXECUTABLE ? {
-        executablePath: BROWSER_EXECUTABLE,
-      } : undefined,
+      browserExecutable: BROWSER_EXECUTABLE,
     });
 
     // 6. 動画をレンダリング
@@ -253,9 +251,7 @@ export async function generateReel(
       codec: 'h264',
       outputLocation: outputPath,
       inputProps,
-      chromiumOptions: BROWSER_EXECUTABLE ? {
-        executablePath: BROWSER_EXECUTABLE,
-      } : undefined,
+      browserExecutable: BROWSER_EXECUTABLE,
     });
 
     const durationTime = ((Date.now() - startTime) / 1000).toFixed(1);

@@ -24,7 +24,7 @@ interface Slide {
   points?: string[];
 }
 
-interface ReelVideoProps {
+export interface ReelVideoProps {
   slides: Slide[];
   backgroundImages: string[];
   logoPath?: string;

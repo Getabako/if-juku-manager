@@ -22,7 +22,7 @@ export interface PhotoMetadata {
 // イベント情報の詳細マッピング
 export const EVENT_INFO: Record<string, {
   name: string;
-  type: 'media' | 'competition' | 'education' | 'development' | 'team';
+  type: 'media' | 'competition' | 'education' | 'development' | 'team' | 'event';
   description: string;
   hashtags: string[];
 }> = {

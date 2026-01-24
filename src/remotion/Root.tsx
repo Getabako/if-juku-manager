@@ -4,7 +4,10 @@
  */
 import React from 'react';
 import { Composition } from 'remotion';
-import { ReelVideo } from './ReelVideo';
+import { ReelVideo } from './ReelVideo.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ReelVideoComponent = ReelVideo as React.FC<any>;
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -12,7 +15,7 @@ export const RemotionRoot: React.FC = () => {
       {/* リール動画コンポジション（15秒版） */}
       <Composition
         id="ReelVideo"
-        component={ReelVideo}
+        component={ReelVideoComponent}
         durationInFrames={450} // 15秒 @ 30fps
         fps={30}
         width={1080}
@@ -28,7 +31,7 @@ export const RemotionRoot: React.FC = () => {
       {/* リール動画コンポジション（30秒版） */}
       <Composition
         id="ReelVideoLong"
-        component={ReelVideo}
+        component={ReelVideoComponent}
         durationInFrames={900} // 30秒 @ 30fps
         fps={30}
         width={1080}

@@ -219,9 +219,7 @@ async function generateForCategory(category: CategoryType): Promise<GenerationRe
           serveUrl: bundleLocation,
           id: 'ReelVideo',
           inputProps,
-          chromiumOptions: BROWSER_EXECUTABLE ? {
-            executablePath: BROWSER_EXECUTABLE,
-          } : undefined,
+          browserExecutable: BROWSER_EXECUTABLE,
         });
 
         const videoPath = path.join(outputDir, `reel_${category}.mp4`);
@@ -231,9 +229,7 @@ async function generateForCategory(category: CategoryType): Promise<GenerationRe
           codec: 'h264',
           outputLocation: videoPath,
           inputProps,
-          chromiumOptions: BROWSER_EXECUTABLE ? {
-            executablePath: BROWSER_EXECUTABLE,
-          } : undefined,
+          browserExecutable: BROWSER_EXECUTABLE,
         });
 
         result.videoPath = videoPath;

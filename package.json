@@ -1,6 +1,7 @@
 {
   "name": "if-juku-instagram-automation",
   "version": "1.0.0",
+  "type": "module",
   "description": "if-juku Instagram自動投稿システム - カルーセル画像＆ショート動画生成",
   "main": "dist/index.js",
   "scripts": {

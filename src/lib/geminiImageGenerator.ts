@@ -213,7 +213,7 @@ ${noTextSuffix}`;
    */
   async generateCarouselBackground(category: string): Promise<GeminiImageResponse> {
     // カテゴリに応じたプロンプトを選択
-    let prompt = DEFAULT_PROMPTS.educational;
+    let prompt: string = DEFAULT_PROMPTS.educational;
 
     if (category.includes('お知らせ') || category.includes('announcement')) {
       prompt = DEFAULT_PROMPTS.announcement;
@@ -271,7 +271,7 @@ ${noTextSuffix}`;
    * リール用背景画像を生成
    */
   async generateReelBackground(category: string): Promise<GeminiImageResponse> {
-    let prompt = DEFAULT_PROMPTS.educational;
+    let prompt: string = DEFAULT_PROMPTS.educational;
 
     if (category.includes('お知らせ')) {
       prompt = DEFAULT_PROMPTS.announcement;
