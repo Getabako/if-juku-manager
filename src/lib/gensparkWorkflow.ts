@@ -31,6 +31,8 @@ import { publerApi } from './publerApi.js';
 // 必須モジュール: 毎回の投稿生成時に必ず使用
 import { notebookLmClient, BusinessInfo } from './notebookLmClient.js';
 import { newsResearcher } from './newsResearcher.js';
+// Geminiフォールバック用
+import { geminiGenerator } from './geminiImageGenerator.js';
 
 // 画像プロンプト生成用のカテゴリ別スタイル
 const CATEGORY_STYLES: Record<CategoryType, string> = {
@@ -314,7 +316,7 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
 
   /**
    * 品質チェック付きで単一画像を生成（自動リトライ機能付き）
-   * 最大3回リトライし、それでもダメならフェイルセーフ処理を適用
+   * 最大5回リトライし、Gensparkが完全失敗した場合はGeminiにフォールバック
    */
   async generateImageWithQualityCheck(
     prompt: string,
@@ -327,6 +329,7 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
     const MAX_RETRIES = 5;
     let currentPrompt = prompt;
     let lastQualityResult: QualityCheckResult | null = null;
+    let gensparkFatalError = false;
 
     // キャラクター特徴を定義
     const characterFeatures: CharacterFeatures = character
@@ -352,15 +355,31 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       expectedText.push(...slide.points.slice(0, 2).map(p => p.slice(0, 10)));
     }
 
+    // ========================================
+    // Phase 1: Gensparkで画像生成を試行（優先）
+    // ========================================
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      logger.info(`画像 ${slideIndex + 1} 生成: 試行 ${attempt}/${MAX_RETRIES}`);
+      logger.info(`画像 ${slideIndex + 1} 生成 [Genspark]: 試行 ${attempt}/${MAX_RETRIES}`);
 
-      // 画像生成
-      const images = await gensparkPlaywright.generateCarouselImages(
-        [currentPrompt],
-        category,
-        referenceImage ? [referenceImage] : undefined
-      );
+      let images: string[] = [];
+      try {
+        // 画像生成
+        images = await gensparkPlaywright.generateCarouselImages(
+          [currentPrompt],
+          category,
+          referenceImage ? [referenceImage] : undefined
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        // ログイン失敗などの致命的エラーはGensparkを諦めてGeminiへ
+        if (errorMsg.includes('ログイン') || errorMsg.includes('login') || errorMsg.includes('認証')) {
+          logger.error(`Genspark致命的エラー: ${errorMsg}`);
+          gensparkFatalError = true;
+          break;
+        }
+        logger.warn(`Genspark画像生成エラー（試行 ${attempt}）: ${errorMsg}`);
+        continue;
+      }
 
       if (images.length === 0) {
         logger.warn(`画像 ${slideIndex + 1} 生成失敗（試行 ${attempt}）`);
@@ -444,8 +463,43 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
 
     }
 
-    // 最大リトライ回数を超えた場合
-    // 【重要】品質チェックに合格しない画像は絶対に使用しない！
+    // ========================================
+    // Phase 2: Geminiフォールバック
+    // Gensparkが完全に失敗した場合のみ実行
+    // ========================================
+    if (gensparkFatalError) {
+      logger.warn('=== Geminiフォールバックを開始 ===');
+      logger.warn('Gensparkログイン失敗のため、Gemini画像生成に切り替えます');
+
+      // Geminiで画像生成を試行（品質チェックなし - Geminiは背景のみ生成）
+      for (let geminiAttempt = 1; geminiAttempt <= 3; geminiAttempt++) {
+        logger.info(`画像 ${slideIndex + 1} 生成 [Gemini]: 試行 ${geminiAttempt}/3`);
+
+        try {
+          // Geminiでカテゴリに応じた背景画像を生成
+          const result = await geminiGenerator.generateCarouselBackground(category);
+
+          if (result.success && result.imagePath) {
+            logger.success(`Gemini画像生成成功: ${result.imagePath}`);
+            // Geminiの場合は品質チェックをスキップ（テキスト描画なし）
+            // 後でHTMLコンポーザーでテキストを合成する
+            return { imagePath: result.imagePath, qualityResult: null };
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          logger.warn(`Gemini画像生成エラー（試行 ${geminiAttempt}）: ${errorMsg}`);
+        }
+      }
+
+      // Geminiも失敗した場合
+      throw new Error(
+        `画像 ${slideIndex + 1} の生成に完全に失敗しました。` +
+        `Genspark（ログイン失敗）とGemini（3回試行）の両方が失敗しました。` +
+        `投稿は中止されます。`
+      );
+    }
+
+    // Gensparkは動作したが品質チェックに失敗した場合
     logger.error(`画像 ${slideIndex + 1} は${MAX_RETRIES}回リトライしても品質チェックに合格しませんでした`);
     logger.error('【品質不合格】この画像は投稿に使用できません');
 
@@ -460,10 +514,28 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       logger.error(`不合格理由: ${failures.join('、')}`);
     }
 
-    // エラーを投げてワークフローを停止
+    // Geminiフォールバックを試行（品質チェック失敗時も）
+    logger.warn('=== Geminiフォールバックを開始（品質チェック失敗後）===');
+    for (let geminiAttempt = 1; geminiAttempt <= 3; geminiAttempt++) {
+      logger.info(`画像 ${slideIndex + 1} 生成 [Gemini]: 試行 ${geminiAttempt}/3`);
+
+      try {
+        const result = await geminiGenerator.generateCarouselBackground(category);
+
+        if (result.success && result.imagePath) {
+          logger.success(`Gemini画像生成成功（フォールバック）: ${result.imagePath}`);
+          return { imagePath: result.imagePath, qualityResult: null };
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        logger.warn(`Gemini画像生成エラー（試行 ${geminiAttempt}）: ${errorMsg}`);
+      }
+    }
+
+    // 全て失敗
     throw new Error(
       `画像 ${slideIndex + 1} の品質チェックに失敗しました。` +
-      `${MAX_RETRIES}回リトライしましたが、必須要件（キャラクター・テキスト・背景）を満たせませんでした。` +
+      `Genspark ${MAX_RETRIES}回 + Gemini 3回の試行全てが失敗しました。` +
       `投稿は中止されます。`
     );
   }
