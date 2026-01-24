@@ -635,6 +635,9 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       // ========================================
       logger.info('ステップ5: Gensparkで画像生成中（品質チェック有効）...');
 
+      // ヘッドレスモードを設定（GitHub Actions等のCI環境用）
+      gensparkPlaywright.setHeadless(headless);
+
       const generatedImages: string[] = [];
       const qualityResults: (QualityCheckResult | null)[] = [];
 

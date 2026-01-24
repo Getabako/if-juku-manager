@@ -124,6 +124,14 @@ export class GensparkPlaywrightGenerator {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private isLoggedIn: boolean = false;
+  private headlessMode: boolean = false;
+
+  /**
+   * ヘッドレスモードを設定
+   */
+  setHeadless(headless: boolean): void {
+    this.headlessMode = headless;
+  }
 
   /**
    * ブラウザを起動（永続コンテキスト使用）
@@ -257,7 +265,7 @@ export class GensparkPlaywrightGenerator {
    */
   async login(): Promise<boolean> {
     if (!this.context) {
-      await this.init(false);
+      await this.init(this.headlessMode);
     }
 
     try {
