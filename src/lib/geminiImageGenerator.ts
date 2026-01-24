@@ -64,10 +64,9 @@ export class GeminiImageGenerator {
         responseModalities: ['Text', 'Image'],
       },
     });
-    // Imagen 3 for high-quality background generation (no text)
-    this.imagenModel = this.genAI.getGenerativeModel({
-      model: 'imagen-3.0-generate-002',
-    });
+    // Imagen 3 is not available in standard Gemini API (requires Vertex AI)
+    // Use Gemini 2.0 Flash for image generation instead
+    this.imagenModel = this.model; // Same as Gemini 2.0 Flash
   }
 
   /**
@@ -241,81 +240,32 @@ ${noTextSuffix}`;
   }
 
   /**
-   * Imagen 3で背景画像を生成（テキストなし、HTML/CSSで後からテキスト合成用）
+   * Gemini 2.0 Flashで背景画像を生成（テキストなし、HTML/CSSで後からテキスト合成用）
    * Genspark失敗時のフォールバックとして使用
+   * Note: Imagen 3は標準Gemini APIでは利用不可（Vertex AI専用）
    */
   async generateBackgroundWithImagen3(category: string): Promise<GeminiImageResponse> {
     // カテゴリ別の背景プロンプト（テキストは含まない）
     const categoryPrompts: Record<string, string> = {
-      ai: 'Futuristic AI technology background, neural network patterns, glowing blue and purple neon gradients, cyberpunk aesthetic, holographic displays, digital particles, abstract tech visualization, dark background with bright accents, NO TEXT NO LETTERS NO WORDS',
-      business: 'Luxury business success background, gold and black premium aesthetic, abstract wealth symbols, rising financial charts visualization, cryptocurrency inspired patterns, professional dark gradient, NO TEXT NO LETTERS NO WORDS',
-      education: 'Warm educational learning background, inspiring classroom atmosphere, soft orange and green growth gradients, abstract knowledge visualization, lightbulb creativity patterns, welcoming academic aesthetic, NO TEXT NO LETTERS NO WORDS',
-      development: 'Code editor inspired background, dark theme with neon syntax color accents, abstract programming visualization, matrix-style digital rain, software development aesthetic, terminal green highlights, NO TEXT NO LETTERS NO WORDS',
-      activity: 'Energetic gaming and esports background, dynamic motion effects, bright cheerful neon colors, abstract competitive visualization, vibrant celebration aesthetic, exciting tournament atmosphere, NO TEXT NO LETTERS NO WORDS',
-      announcement: 'Celebratory announcement background, confetti and sparkle effects, exciting warm gradient colors, festive celebration aesthetic, modern event poster style, dynamic energy visualization, NO TEXT NO LETTERS NO WORDS',
+      ai: 'Futuristic AI technology background, neural network patterns, glowing blue and purple neon gradients, cyberpunk aesthetic, holographic displays, digital particles, abstract tech visualization, dark background with bright accents',
+      business: 'Luxury business success background, gold and black premium aesthetic, abstract wealth symbols, rising financial charts visualization, cryptocurrency inspired patterns, professional dark gradient',
+      education: 'Warm educational learning background, inspiring classroom atmosphere, soft orange and green growth gradients, abstract knowledge visualization, lightbulb creativity patterns, welcoming academic aesthetic',
+      development: 'Code editor inspired background, dark theme with neon syntax color accents, abstract programming visualization, matrix-style digital rain, software development aesthetic, terminal green highlights',
+      activity: 'Energetic gaming and esports background, dynamic motion effects, bright cheerful neon colors, abstract competitive visualization, vibrant celebration aesthetic, exciting tournament atmosphere',
+      announcement: 'Celebratory announcement background, confetti and sparkle effects, exciting warm gradient colors, festive celebration aesthetic, modern event poster style, dynamic energy visualization',
     };
 
     const prompt = categoryPrompts[category] || categoryPrompts.ai;
 
-    const fullPrompt = `Generate a high-quality Instagram background image:
-${prompt}
+    logger.info(`Gemini 2.0 Flashで背景画像を生成中... (カテゴリ: ${category})`);
 
-CRITICAL REQUIREMENTS:
-- Aspect ratio: 4:5 (portrait, 1080x1350 pixels style)
-- ABSOLUTELY NO TEXT, LETTERS, NUMBERS, WORDS, SIGNS, LOGOS, OR WATERMARKS
-- Keep center area relatively simple for text overlay
-- Vibrant, eye-catching colors
-- Professional, modern aesthetic
-- Suitable for social media marketing`;
-
-    try {
-      logger.info(`Imagen 3で背景画像を生成中... (カテゴリ: ${category})`);
-
-      const response = await this.imagenModel.generateContent(fullPrompt);
-      const result = response.response;
-
-      const candidates = result.candidates;
-      if (!candidates || candidates.length === 0) {
-        throw new Error('Imagen 3: レスポンスが空です');
-      }
-
-      const parts = candidates[0].content?.parts;
-      if (!parts) {
-        throw new Error('Imagen 3: パーツが見つかりません');
-      }
-
-      // 画像データを探す
-      for (const part of parts) {
-        if (part.inlineData) {
-          const imageData = part.inlineData.data;
-          const mimeType = part.inlineData.mimeType;
-          const extension = mimeType.includes('png') ? 'png' : 'jpg';
-
-          await fs.mkdir(PATHS.generated, { recursive: true });
-
-          const filename = `imagen3_${category}_${uuidv4()}.${extension}`;
-          const outputPath = path.join(PATHS.generated, filename);
-
-          const buffer = Buffer.from(imageData, 'base64');
-          await fs.writeFile(outputPath, buffer);
-
-          logger.success(`Imagen 3背景画像生成完了: ${outputPath}`);
-          return {
-            success: true,
-            imagePath: outputPath,
-          };
-        }
-      }
-
-      throw new Error('Imagen 3: 画像データが見つかりません');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '不明なエラー';
-      logger.error(`Imagen 3エラー: ${errorMessage}`);
-
-      // Imagen 3が失敗した場合、従来のGemini 2.0 Flashにフォールバック
-      logger.warn('Imagen 3失敗、Gemini 2.0 Flashにフォールバック...');
-      return this.generateCarouselBackground(category);
-    }
+    // 直接 generateCarouselBackground を使用（テキストなしの背景を生成）
+    return this.generateImage({
+      width: IMAGE_SIZES.carousel.width,
+      height: IMAGE_SIZES.carousel.height,
+      prompt,
+      style: 'modern, vibrant, professional, eye-catching, suitable for text overlay',
+    });
   }
 
   /**

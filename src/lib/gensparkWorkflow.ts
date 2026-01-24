@@ -464,39 +464,39 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
     }
 
     // ========================================
-    // Phase 2: Imagen 3 フォールバック
+    // Phase 2: Gemini フォールバック
     // Gensparkが完全に失敗した場合のみ実行
     // テキストなしの背景画像を生成し、後でhtmlComposerでテキスト合成
     // ========================================
     if (gensparkFatalError) {
-      logger.warn('=== Imagen 3 フォールバックを開始 ===');
-      logger.warn('Gensparkログイン失敗のため、Imagen 3で背景画像を生成します');
+      logger.warn('=== Gemini フォールバックを開始 ===');
+      logger.warn('Gensparkログイン失敗のため、Geminiで背景画像を生成します');
       logger.info('テキストはhtmlComposerで後から合成します');
 
-      // Imagen 3で背景画像生成を試行
+      // Geminiで背景画像生成を試行
       for (let geminiAttempt = 1; geminiAttempt <= 3; geminiAttempt++) {
-        logger.info(`画像 ${slideIndex + 1} 生成 [Imagen 3]: 試行 ${geminiAttempt}/3`);
+        logger.info(`画像 ${slideIndex + 1} 生成 [Gemini]: 試行 ${geminiAttempt}/3`);
 
         try {
-          // Imagen 3でカテゴリに応じた背景画像を生成（テキストなし）
+          // Geminiでカテゴリに応じた背景画像を生成（テキストなし）
           const result = await geminiGenerator.generateBackgroundWithImagen3(category);
 
           if (result.success && result.imagePath) {
-            logger.success(`Imagen 3背景画像生成成功: ${result.imagePath}`);
+            logger.success(`Gemini背景画像生成成功: ${result.imagePath}`);
             // needsTextOverlay: true を示すため、qualityResultをnullで返す
             // 呼び出し元でqualityResult===nullの場合はテキスト合成が必要と判断
             return { imagePath: result.imagePath, qualityResult: null };
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
-          logger.warn(`Imagen 3画像生成エラー（試行 ${geminiAttempt}）: ${errorMsg}`);
+          logger.warn(`Gemini画像生成エラー（試行 ${geminiAttempt}）: ${errorMsg}`);
         }
       }
 
-      // Imagen 3も失敗した場合
+      // Geminiも失敗した場合
       throw new Error(
         `画像 ${slideIndex + 1} の生成に完全に失敗しました。` +
-        `Genspark（ログイン失敗）とImagen 3（3回試行）の両方が失敗しました。` +
+        `Genspark（ログイン失敗）とGemini（3回試行）の両方が失敗しました。` +
         `投稿は中止されます。`
       );
     }
@@ -516,22 +516,22 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       logger.error(`不合格理由: ${failures.join('、')}`);
     }
 
-    // Imagen 3フォールバックを試行（品質チェック失敗時も）
-    logger.warn('=== Imagen 3 フォールバックを開始（品質チェック失敗後）===');
+    // Geminiフォールバックを試行（品質チェック失敗時も）
+    logger.warn('=== Gemini フォールバックを開始（品質チェック失敗後）===');
     logger.info('テキストはhtmlComposerで後から合成します');
     for (let geminiAttempt = 1; geminiAttempt <= 3; geminiAttempt++) {
-      logger.info(`画像 ${slideIndex + 1} 生成 [Imagen 3]: 試行 ${geminiAttempt}/3`);
+      logger.info(`画像 ${slideIndex + 1} 生成 [Gemini]: 試行 ${geminiAttempt}/3`);
 
       try {
         const result = await geminiGenerator.generateBackgroundWithImagen3(category);
 
         if (result.success && result.imagePath) {
-          logger.success(`Imagen 3背景画像生成成功（フォールバック）: ${result.imagePath}`);
+          logger.success(`Gemini背景画像生成成功（フォールバック）: ${result.imagePath}`);
           return { imagePath: result.imagePath, qualityResult: null };
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.warn(`Imagen 3画像生成エラー（試行 ${geminiAttempt}）: ${errorMsg}`);
+        logger.warn(`Gemini画像生成エラー（試行 ${geminiAttempt}）: ${errorMsg}`);
       }
     }
 
@@ -757,7 +757,7 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
         throw new Error(`4枚の画像が必要ですが、${generatedImages.length}枚しか生成できませんでした`);
       }
 
-      // Imagen 3フォールバックで生成された画像を検出（qualityResult === null）
+      // Geminiフォールバックで生成された画像を検出（qualityResult === null）
       const imagen3FallbackIndices: number[] = [];
       for (let i = 0; i < qualityResults.length; i++) {
         if (qualityResults[i] === null) {
@@ -770,7 +770,7 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       const gensparkPassedCount = gensparkResults.filter(r => r?.isValid).length;
 
       if (imagen3FallbackIndices.length > 0) {
-        logger.info(`Imagen 3フォールバック使用: ${imagen3FallbackIndices.length}枚`);
+        logger.info(`Geminiフォールバック使用: ${imagen3FallbackIndices.length}枚`);
         logger.info('これらの画像にはhtmlComposerでテキストを合成します');
       }
 
@@ -784,11 +784,11 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
 
       // ========================================
       // ステップ6: 最終画像を作成
-      // Imagen 3フォールバック画像にはhtmlComposerでテキスト合成
+      // Geminiフォールバック画像にはhtmlComposerでテキスト合成
       // ========================================
       if (imagen3FallbackIndices.length > 0) {
-        // Imagen 3で生成された背景画像にHTMLでテキストを合成
-        logger.info('ステップ6: Imagen 3画像にhtmlComposerでテキスト合成...');
+        // Geminiで生成された背景画像にHTMLでテキストを合成
+        logger.info('ステップ6: Gemini画像にhtmlComposerでテキスト合成...');
         finalImages = [...generatedImages];
 
         for (const idx of imagen3FallbackIndices) {
@@ -818,7 +818,7 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
             logger.success(`スライド ${idx + 1} にテキスト合成完了`);
           } catch (error) {
             logger.error(`スライド ${idx + 1} のテキスト合成に失敗: ${error}`);
-            // 失敗してもImagen 3の背景画像を使用（テキストなしで続行）
+            // 失敗してもGeminiの背景画像を使用（テキストなしで続行）
             logger.warn('テキストなしの背景画像を使用します');
           }
         }
