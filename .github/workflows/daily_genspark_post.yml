@@ -81,6 +81,19 @@ jobs:
             fonts-noto-cjk \
             fonts-noto-cjk-extra
 
+      - name: Restore Genspark authentication state
+        env:
+          GENSPARK_STATE: ${{ secrets.GENSPARK_STATE }}
+        run: |
+          mkdir -p data
+          if [ -n "$GENSPARK_STATE" ]; then
+            # Base64 decode and gzip decompress
+            echo "$GENSPARK_STATE" | base64 -d | gunzip > data/genspark_state.json
+            echo "Genspark state restored from secret (gzip compressed)"
+          else
+            echo "Warning: GENSPARK_STATE secret not set"
+          fi
+
       # NotebookLMはGitHub Actions上では利用不可（ローカル実行時のみ）
       # フォールバック情報が自動的に使用される
 
