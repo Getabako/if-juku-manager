@@ -77,10 +77,12 @@ jobs:
             libxrandr2 \
             libcups2 \
             libasound2t64 \
-            chromium-browser \
             fonts-noto-cjk \
             fonts-noto-cjk-extra \
             xvfb
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
 
       - name: Restore Genspark authentication state
         env:

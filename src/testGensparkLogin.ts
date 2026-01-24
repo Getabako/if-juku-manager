@@ -6,8 +6,8 @@ async function testLogin() {
   const genspark = new GensparkPlaywrightGenerator();
 
   try {
-    // ヘッドレスモードON（GitHub Actionsと同じ環境）
-    genspark.setHeadless(true);
+    // ブラウザ表示モード（xvfb環境と同等）
+    genspark.setHeadless(false);
 
     const success = await genspark.login();
 
