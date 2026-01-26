@@ -63,12 +63,23 @@ export class PublerApi {
       headers,
     });
 
+    const responseText = await response.text();
+    logger.info(`Publer API Response [${endpoint}]: ${response.status}`);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Publer API error: ${response.status} - ${errorText}`);
+      logger.error(`Publer API Error Response: ${responseText}`);
+      throw new Error(`Publer API error: ${response.status} - ${responseText}`);
     }
 
-    return response.json();
+    // レスポンスをログに出力（デバッグ用）
+    logger.info(`Publer API Response Body: ${responseText.slice(0, 500)}`);
+
+    try {
+      return JSON.parse(responseText);
+    } catch (e) {
+      logger.error(`Failed to parse JSON: ${responseText}`);
+      throw new Error(`Invalid JSON response: ${responseText}`);
+    }
   }
 
   /**
@@ -212,9 +223,20 @@ export class PublerApi {
     });
 
     logger.info(`投稿スケジュールジョブ開始: ${response.job_id}`);
+    logger.info(`投稿ペイロード: ${JSON.stringify(postPayload, null, 2)}`);
 
     // ジョブ完了を待機
-    await this.waitForJob(response.job_id);
+    const jobResult = await this.waitForJob(response.job_id);
+    logger.info(`投稿スケジュールジョブ結果: ${JSON.stringify(jobResult, null, 2)}`);
+
+    // ジョブ結果を確認
+    if (jobResult.payload && typeof jobResult.payload === 'object') {
+      const payload = jobResult.payload as Record<string, unknown>;
+      if (payload.failures && Object.keys(payload.failures as object).length > 0) {
+        logger.error(`投稿スケジュール失敗: ${JSON.stringify(payload.failures)}`);
+        throw new Error(`Publer投稿スケジュール失敗: ${JSON.stringify(payload.failures)}`);
+      }
+    }
 
     logger.success('Instagram投稿のスケジュールが完了しました');
     return response.job_id;
