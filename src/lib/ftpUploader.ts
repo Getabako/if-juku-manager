@@ -28,8 +28,10 @@ function getDefaultFtpConfig(): FtpConfig {
     password: process.env.FTP_PASSWORD || '',
     port: parseInt(process.env.FTP_PORT || '21'),
     secure: process.env.FTP_SECURE === 'true',
-    remoteDir: process.env.FTP_REMOTE_DIR || '/images.if-juku.net/public_html/instagram',
-    publicUrl: process.env.FTP_PUBLIC_URL || 'https://images.if-juku.net/instagram',
+    // FTP_REMOTE_PATH（ワークフロー）またはFTP_REMOTE_DIR（.env）の両方をサポート
+    remoteDir: process.env.FTP_REMOTE_PATH || process.env.FTP_REMOTE_DIR || '/if-juku.net/public_html/images.if-juku.net/instagram',
+    // FTP_BASE_URL（ワークフロー）またはFTP_PUBLIC_URL（.env）の両方をサポート
+    publicUrl: process.env.FTP_BASE_URL || process.env.FTP_PUBLIC_URL || 'https://images.if-juku.net/instagram',
   };
 }
 
