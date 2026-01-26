@@ -9,10 +9,8 @@ name: Daily Genspark Instagram Post
 # 6. FTPにアップロード
 # 7. Publerでスケジュール
 #
-# 【投稿スケジュール】毎日3回投稿:
-# - 9:00 JST (UTC 00:00) → ビジネス (business)
-# - 13:00 JST (UTC 04:00) → 教育 (education)
-# - 18:00 JST (UTC 09:00) → AI (ai)
+# 【投稿スケジュール】毎日1回投稿:
+# - 18:00 JST (UTC 09:00) → ローテーション (ai → business → education)
 
 on:
   # 手動実行
@@ -31,13 +29,9 @@ on:
           - activity
           - announcement
 
-  # スケジュール実行（毎日3回）
+  # スケジュール実行（毎日1回）
   schedule:
-    # 9:00 JST = UTC 00:00 → ビジネス
-    - cron: '0 0 * * *'
-    # 13:00 JST = UTC 04:00 → 教育
-    - cron: '0 4 * * *'
-    # 18:00 JST = UTC 09:00 → AI
+    # 18:00 JST = UTC 09:00 → ローテーション
     - cron: '0 9 * * *'
 
 env:
@@ -100,41 +94,32 @@ jobs:
       # NotebookLMはGitHub Actions上では利用不可（ローカル実行時のみ）
       # フォールバック情報が自動的に使用される
 
-      - name: Determine category by schedule time
+      - name: Determine category by rotation
         id: category
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ github.event.inputs.category }}" >> $GITHUB_OUTPUT
             echo "post_time=manual" >> $GITHUB_OUTPUT
           else
-            # スケジュール実行時は実行時刻でカテゴリを決定
-            # GitHub Actionsのcronスケジュールに基づく
-            # UTC時刻で判定（JSTから-9時間）
-            HOUR_UTC=$(date -u +%H)
-            echo "UTC Hour: $HOUR_UTC"
+            # スケジュール実行時は日にちベースでローテーション
+            # 日にちを3で割った余りでカテゴリを決定
+            # 0 = ai, 1 = business, 2 = education
+            DAY_OF_MONTH=$(date +%d)
+            REMAINDER=$((DAY_OF_MONTH % 3))
+            echo "Day of month: $DAY_OF_MONTH, Remainder: $REMAINDER"
 
-            case $HOUR_UTC in
-              00|01)
-                # 9:00 JST (UTC 00:00) → ビジネス
+            case $REMAINDER in
+              0)
+                echo "value=ai" >> $GITHUB_OUTPUT
+                ;;
+              1)
                 echo "value=business" >> $GITHUB_OUTPUT
-                echo "post_time=09:00" >> $GITHUB_OUTPUT
                 ;;
-              04|05)
-                # 13:00 JST (UTC 04:00) → 教育
+              2)
                 echo "value=education" >> $GITHUB_OUTPUT
-                echo "post_time=13:00" >> $GITHUB_OUTPUT
-                ;;
-              09|10)
-                # 18:00 JST (UTC 09:00) → AI
-                echo "value=ai" >> $GITHUB_OUTPUT
-                echo "post_time=18:00" >> $GITHUB_OUTPUT
-                ;;
-              *)
-                # デフォルト（想定外の時間帯）
-                echo "value=ai" >> $GITHUB_OUTPUT
-                echo "post_time=other" >> $GITHUB_OUTPUT
                 ;;
             esac
+            echo "post_time=18:00" >> $GITHUB_OUTPUT
           fi
 
           echo "=== カテゴリ決定 ==="
@@ -174,10 +159,11 @@ jobs:
           echo "ステップ3: ブログからInstagram要約を生成"
           echo "ステップ4-8: 画像生成（品質チェック5回） → FTP → Publer"
           echo ""
-          echo "【投稿スケジュール】"
-          echo "- 9:00 JST → ビジネス (business)"
-          echo "- 13:00 JST → 教育 (education)"
-          echo "- 18:00 JST → AI (ai)"
+          echo "【投稿スケジュール】毎日18:00 JST"
+          echo "カテゴリは日にちに基づくローテーション:"
+          echo "- 余り0の日 → AI (ai)"
+          echo "- 余り1の日 → ビジネス (business)"
+          echo "- 余り2の日 → 教育 (education)"
           echo ""
           # xvfbで仮想ディスプレイを使用（ヘッドレス検出を回避）
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
@@ -217,11 +203,13 @@ jobs:
           echo "**カテゴリ**: ${{ steps.category.outputs.value }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 投稿スケジュール" >> $GITHUB_STEP_SUMMARY
-          echo "| 時間 | カテゴリ |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|----------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 9:00 JST | ビジネス (business) |" >> $GITHUB_STEP_SUMMARY
-          echo "| 13:00 JST | 教育 (education) |" >> $GITHUB_STEP_SUMMARY
-          echo "| 18:00 JST | AI (ai) |" >> $GITHUB_STEP_SUMMARY
+          echo "毎日18:00 JST（ローテーション）" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 日にち÷3の余り | カテゴリ |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 0 | AI (ai) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 1 | ビジネス (business) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 2 | 教育 (education) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 実行されたステップ" >> $GITHUB_STEP_SUMMARY
           echo "1. NotebookLMから文体・事業情報を取得" >> $GITHUB_STEP_SUMMARY
