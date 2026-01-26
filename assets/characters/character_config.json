@@ -1,0 +1,39 @@
+{
+  "characters": {
+    "jukucho": {
+      "name": "塾長",
+      "file": "jukucho.png",
+      "style": "semi-realistic anime illustration",
+      "description": {
+        "ja": "18歳の日本人男子大学生。くしゃっとした癖毛の黒髪（整った髪ではなく少し乱れた自然な癖毛）。若々しい丸みのある顔。細めの優しい目。白いポロシャツ（ボタン2-3個）。グレーのウィンドウペンチェック柄パンツ（細いラインのチェック模様）。爽やかで親しみやすい雰囲気。若い大学生らしいフレッシュな印象。",
+        "en": "18-year-old Japanese male college student. Slightly messy wavy black hair (natural tousled look, not neatly styled). Youthful round face shape. Narrow gentle eyes. White polo shirt with 2-3 buttons. Gray windowpane check pants with thin grid lines. Fresh and approachable demeanor typical of a young college student."
+      },
+      "personality": "信頼感があり、専門的な知識を親しみやすく伝える",
+      "use_for": ["education", "psychology", "inclusive_education"],
+      "prompt_reference": "Semi-realistic anime style 18-year-old Japanese male college student, slightly messy tousled wavy black hair, youthful round face, narrow gentle eyes, wearing white polo shirt with buttons, gray windowpane check pattern pants, fresh young approachable expression",
+      "detailed_prompt_ja": "セミリアルなアニメ調の18歳日本人男子大学生。くしゃっとした癖毛の黒髪（整った髪ではなく少し乱れた自然な癖毛）。若々しい丸みのある顔立ち。細めの優しい目。白いポロシャツを着用（襟付き、ボタン2-3個）。グレーのウィンドウペンチェック柄パンツ（細い格子線の模様）。爽やかで親しみやすい雰囲気。若い大学生らしいフレッシュな印象。"
+    },
+    "jukuto": {
+      "name": "塾頭",
+      "file": "jukuto.png",
+      "style": "chibi/kawaii deformed character",
+      "description": {
+        "ja": "ちびキャラ/デフォルメキャラクター。ボサボサで尖った黒髪（光沢ハイライト付き）。黒い幅広ヘアバンドが目を常に完全に覆い隠している。笑顔で口を開けている（目は絶対に見えない）。黒いTシャツ（肩に水色/シアンのパーツ付き）。黒いワイドハーフパンツ。赤/茶色の下駄。両腕に水色のサイバーパンク風回路模様のタトゥー。グレーのノートパソコンを片手で持っている。",
+        "en": "Chibi/deformed kawaii character. Messy spiky black hair with shine highlights. Plain black wide hairband ALWAYS COMPLETELY COVERING the eyes like a blindfold. Smiling with open mouth (eyes are NEVER visible). Black t-shirt with cyan/light blue shoulder patches. Black wide half-pants. Red/brown traditional Japanese wooden sandals (geta). Cyan cyberpunk circuit pattern tattoos on BOTH arms. Holding a gray laptop in one hand."
+      },
+      "personality": "親しみやすく、テクノロジーに詳しい、元気でポジティブ",
+      "use_for": ["ai_tools", "startup", "investment"],
+      "prompt_reference": "Chibi kawaii deformed character, messy spiky black hair with shine highlights, plain black wide hairband ALWAYS COMPLETELY COVERING eyes like a blindfold, smiling open mouth, black t-shirt with cyan shoulder patches, black wide shorts, red-brown wooden geta sandals, cyan cyberpunk circuit tattoos on both arms, holding gray laptop",
+      "detailed_prompt_ja": "ちびキャラスタイル。ボサボサで尖った黒髪（光沢ハイライト付き）。黒い幅広ヘアバンドが目を常に完全に覆い隠す（目隠しのように、目は絶対に見せない）。笑顔で口を開ける。黒Tシャツ（肩に水色パーツ）。黒いワイドハーフパンツ。赤茶色の下駄。両腕に水色のサイバーパンク回路模様。グレーのノートPCを片手で持つ。"
+    }
+  },
+  "topic_character_mapping": {
+    "psychology": "jukucho",
+    "education": "jukucho",
+    "startup": "jukuto",
+    "investment": "jukuto",
+    "ai_tools": "jukuto",
+    "inclusive_education": "jukucho"
+  },
+  "default_character": "jukuto"
+}

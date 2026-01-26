@@ -5,9 +5,10 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from './logger.js';
+import { PATHS } from './config.js';
 
-// キャラクターの基本パス
-const CHARACTER_BASE_PATH = '/Users/takasaki19841121/Desktop/ifJukuManager/characters';
+// キャラクターの基本パス（assets/characters内）
+const CHARACTER_BASE_PATH = path.join(PATHS.assets, 'characters');
 
 // キャラクター情報
 export interface Character {
