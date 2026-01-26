@@ -20,18 +20,31 @@ interface FtpConfig {
   publicUrl: string;
 }
 
+// Xserver用の正しいFTPパス設定
+const CORRECT_FTP_REMOTE_DIR = '/if-juku.net/public_html/images.if-juku.net/instagram';
+const CORRECT_FTP_PUBLIC_URL = 'https://images.if-juku.net/instagram';
+
 // デフォルト設定を取得する関数（遅延評価で環境変数を読み込む）
 function getDefaultFtpConfig(): FtpConfig {
+  // 環境変数の値を取得
+  let remoteDir = process.env.FTP_REMOTE_PATH || process.env.FTP_REMOTE_DIR || CORRECT_FTP_REMOTE_DIR;
+  let publicUrl = process.env.FTP_BASE_URL || process.env.FTP_PUBLIC_URL || CORRECT_FTP_PUBLIC_URL;
+
+  // 間違ったパスを自動修正（/images.if-juku.net/public_html → /if-juku.net/public_html/images.if-juku.net）
+  if (remoteDir.startsWith('/images.if-juku.net/public_html')) {
+    console.warn(`[FTP] 間違ったパスを検出、自動修正: ${remoteDir}`);
+    remoteDir = remoteDir.replace('/images.if-juku.net/public_html', '/if-juku.net/public_html/images.if-juku.net');
+    console.warn(`[FTP] 修正後: ${remoteDir}`);
+  }
+
   return {
     host: process.env.FTP_HOST || 'sv8109.xserver.jp',
     user: process.env.FTP_USER || 'getabakoclub',
     password: process.env.FTP_PASSWORD || '',
     port: parseInt(process.env.FTP_PORT || '21'),
     secure: process.env.FTP_SECURE === 'true',
-    // FTP_REMOTE_PATH（ワークフロー）またはFTP_REMOTE_DIR（.env）の両方をサポート
-    remoteDir: process.env.FTP_REMOTE_PATH || process.env.FTP_REMOTE_DIR || '/if-juku.net/public_html/images.if-juku.net/instagram',
-    // FTP_BASE_URL（ワークフロー）またはFTP_PUBLIC_URL（.env）の両方をサポート
-    publicUrl: process.env.FTP_BASE_URL || process.env.FTP_PUBLIC_URL || 'https://images.if-juku.net/instagram',
+    remoteDir,
+    publicUrl,
   };
 }
 
