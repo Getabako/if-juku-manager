@@ -136,8 +136,8 @@ export class PublerApi {
 
         logger.info(`  ジョブID: ${response.job_id}`);
 
-        // ジョブ完了を待機（1枚なので30秒で十分）
-        const jobResult = await this.waitForJob(response.job_id, 15);
+        // ジョブ完了を待機（1枚でも時間がかかる場合があるので120秒待機）
+        const jobResult = await this.waitForJob(response.job_id, 60);
 
         if (Array.isArray(jobResult.payload) && jobResult.payload.length > 0) {
           results.push(jobResult.payload[0]);

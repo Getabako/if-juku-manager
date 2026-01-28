@@ -47,7 +47,7 @@ export class TrendResearcher {
     this.genAI = new GoogleGenerativeAI(config.geminiApiKey);
     // Gemini 2.0 Flash with Google Search grounding
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.0-flash',
     });
   }
 

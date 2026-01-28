@@ -53,7 +53,7 @@ export class BlogGenerator {
   constructor() {
     const config = getConfig();
     this.genAI = new GoogleGenerativeAI(config.geminiApiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   }
 
   /**

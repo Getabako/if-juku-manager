@@ -58,7 +58,7 @@ export class GeminiImageGenerator {
     this.genAI = new GoogleGenerativeAI(config.geminiApiKey);
     // Gemini 2.0 Flash experimental with image generation
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.0-flash',
       generationConfig: {
         // @ts-expect-error - responseModalities is a valid config for image generation
         responseModalities: ['Text', 'Image'],

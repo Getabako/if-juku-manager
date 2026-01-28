@@ -82,7 +82,7 @@ export class NewsResearcher {
     // 旧SDK: 通常の生成用（フォールバック）
     this.oldGenAI = new GoogleGenerativeAI(config.geminiApiKey);
     this.model = this.oldGenAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.0-flash',
     });
   }
 
