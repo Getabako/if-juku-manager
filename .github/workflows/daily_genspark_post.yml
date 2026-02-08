@@ -11,6 +11,7 @@ name: Daily Genspark Instagram Post
 #
 # 【投稿スケジュール】毎日1回投稿:
 # - 18:00 JST (UTC 09:00) → ローテーション (ai → business → education)
+# Re-enabled schedule: 2026-02-08
 
 on:
   # 手動実行
