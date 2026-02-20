@@ -33,6 +33,10 @@ import { notebookLmClient, BusinessInfo } from './notebookLmClient.js';
 import { newsResearcher } from './newsResearcher.js';
 // Geminiフォールバック用
 import { geminiGenerator } from './geminiImageGenerator.js';
+// NanoBanaPro画像生成（Gemini直接画像生成）
+import { nanobananaProGenerator } from './nanobananaProGenerator.js';
+// if-Businessブログ連携
+import { ifBusinessPublisher } from './ifBusinessPublisher.js';
 
 // 画像プロンプト生成用のカテゴリ別スタイル
 const CATEGORY_STYLES: Record<CategoryType, string> = {
@@ -663,6 +667,13 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       await blogGenerator.saveBlog(blog, topicId);
       logger.success(`ブログ記事を保存: ${blog.title}`);
 
+      // 2-3. if-Businessにブログ記事を連携
+      try {
+        await ifBusinessPublisher.publishBlog(blog);
+      } catch (publishError) {
+        logger.warn(`if-Businessブログ連携に失敗（続行）: ${publishError}`);
+      }
+
       // ========================================
       // ステップ3: ブログからInstagram投稿用の要約を生成
       // 【必須】ブログから抽出すること！
@@ -722,63 +733,44 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
       logger.success(`${imagePrompts.length}枚の画像プロンプトを生成`);
 
       // ========================================
-      // ステップ5: Gensparkで画像生成（品質チェック・自動リトライ付き）
+      // ステップ5: NanoBanaPro（Gemini）で画像生成
       // ========================================
-      logger.info('ステップ5: Gensparkで画像生成中（品質チェック有効）...');
-
-      // ヘッドレスモードを設定（GitHub Actions等のCI環境用）
-      gensparkPlaywright.setHeadless(headless);
+      logger.info('ステップ5: NanoBanaPro（Gemini画像生成）で画像生成中...');
 
       const generatedImages: string[] = [];
       const qualityResults: (QualityCheckResult | null)[] = [];
 
-      // キャラクターを交互に使用
-      const jukucho = characters?.get('塾長');
-      const jukuto = characters?.get('塾頭');
+      // NanoBanaProで4枚の画像を生成（翔太キャラ + テキスト + 背景 一体化）
+      const nanoImages = await nanobananaProGenerator.generateCarouselImages(
+        adjustedSlides,
+        category,
+        title
+      );
 
-      for (let i = 0; i < imagePrompts.length; i++) {
-        const slide = adjustedSlides[i];
-        const useJukucho = i % 2 === 0;
-        const character = useJukucho ? jukucho : jukuto;
-        const refImage = referenceImages?.[i] || undefined;
-
-        try {
-          const result = await this.generateImageWithQualityCheck(
-            imagePrompts[i],
-            i,
-            slide,
-            category,
-            character,
-            refImage
-          );
-          generatedImages.push(result.imagePath);
-          qualityResults.push(result.qualityResult);
-        } catch (error) {
-          // 【変更】画像生成失敗時も投稿を続行（品質妥協モード）
-          logger.warn(`画像 ${i + 1} の生成に失敗: ${error}`);
-          logger.warn('【品質妥協】この画像はスキップして続行します');
-
-          // Geminiでシンプルな背景を生成して代替
+      for (let i = 0; i < adjustedSlides.length; i++) {
+        if (i < nanoImages.length && nanoImages[i]) {
+          generatedImages.push(nanoImages[i]);
+          qualityResults.push(null); // NanoBanaProは品質チェック不要（完成品）
+        } else {
+          // NanoBanaPro失敗時のフォールバック: Gemini背景 + htmlComposer
+          logger.warn(`画像 ${i + 1} のNanoBanaPro生成失敗、Geminiフォールバック`);
           try {
             const fallbackResult = await geminiGenerator.generateCarouselBackground(category);
             if (fallbackResult.success && fallbackResult.imagePath) {
               generatedImages.push(fallbackResult.imagePath);
-              qualityResults.push(null); // テキスト合成が必要
-              logger.info(`画像 ${i + 1} の代替背景を生成しました`);
+              qualityResults.push(null);
             } else {
-              // 代替も失敗した場合は空文字を入れて後で処理
               generatedImages.push('');
               qualityResults.push(null);
             }
-          } catch (fallbackError) {
+          } catch {
             generatedImages.push('');
             qualityResults.push(null);
-            logger.warn(`画像 ${i + 1} の代替生成も失敗`);
           }
         }
       }
 
-      // 全画像が生成されたか確認（空の画像は除外してカウント）
+      // 全画像が生成されたか確認
       const validImages = generatedImages.filter(img => img && img.length > 0);
       if (validImages.length === 0) {
         throw new Error('有効な画像が1枚も生成できませんでした');
@@ -787,120 +779,39 @@ ${subKeywords.length > 0 ? `画像下部に「${subKeywords.join('」「')}」�
         logger.warn(`4枚の画像が必要ですが、${validImages.length}枚しか生成できませんでした。続行します。`);
       }
 
-      // Geminiフォールバックで生成された画像を検出（qualityResult === null）
+      // Geminiフォールバックで生成された画像を検出
       const imagen3FallbackIndices: number[] = [];
-      for (let i = 0; i < qualityResults.length; i++) {
-        if (qualityResults[i] === null) {
+      // NanoBanaPro画像は完成品なのでフォールバックインデックスには含めない
+      // ただし空画像はフォールバック対象
+      for (let i = 0; i < generatedImages.length; i++) {
+        if (!generatedImages[i] || generatedImages[i].length === 0) {
           imagen3FallbackIndices.push(i);
         }
       }
 
-      // Genspark生成画像の品質チェック確認
-      const gensparkResults = qualityResults.filter(r => r !== null);
-      const gensparkPassedCount = gensparkResults.filter(r => r?.isValid).length;
-
-      if (imagen3FallbackIndices.length > 0) {
-        logger.info(`Geminiフォールバック使用: ${imagen3FallbackIndices.length}枚`);
-        logger.info('これらの画像にはhtmlComposerでテキストを合成します');
-      }
-
-      if (gensparkResults.length > 0 && gensparkPassedCount < gensparkResults.length) {
-        logger.warn(`Genspark生成画像: ${gensparkPassedCount}/${gensparkResults.length}枚が品質チェック合格`);
-      }
-
-      logger.success(`全${generatedImages.length}枚の画像生成完了`);
+      logger.success(`全${validImages.length}枚の画像生成完了（NanoBanaPro）`);
 
       let finalImages: string[];
 
       // ========================================
       // ステップ6: 最終画像を作成
-      // Geminiフォールバック画像にはhtmlComposerでテキスト合成
+      // NanoBanaPro画像は完成品としてそのまま使用
       // ========================================
-      if (imagen3FallbackIndices.length > 0) {
-        // Geminiで生成された背景画像にHTMLでテキストを合成
-        logger.info('ステップ6: Gemini画像にhtmlComposerでテキスト合成...');
-        finalImages = [...generatedImages];
+      logger.info('ステップ6: NanoBanaPro生成画像を最終画像として準備...');
 
-        for (const idx of imagen3FallbackIndices) {
-          const slide = adjustedSlides[idx];
-          const backgroundImage = generatedImages[idx];
-          const outputPath = path.join(
-            path.dirname(backgroundImage),
-            `slide_${idx + 1}_with_text.jpg`
-          );
+      // 出力ディレクトリにコピー
+      const outputDir = path.join(PATHS.generated, topicId);
+      await fs.mkdir(outputDir, { recursive: true });
 
-          try {
-            let composedPath: string;
-            if (slide.type === 'cover') {
-              composedPath = await htmlComposer.renderCoverSlide(slide, backgroundImage, outputPath);
-            } else if (slide.type === 'thanks') {
-              composedPath = await htmlComposer.renderThanksSlide(slide, backgroundImage, outputPath);
-            } else {
-              composedPath = await htmlComposer.renderContentSlide(
-                slide,
-                backgroundImage,
-                outputPath,
-                idx,
-                adjustedSlides.length
-              );
-            }
-            finalImages[idx] = composedPath;
-            logger.success(`スライド ${idx + 1} にテキスト合成完了`);
-          } catch (error) {
-            logger.error(`スライド ${idx + 1} のテキスト合成に失敗: ${error}`);
-            // 失敗してもGeminiの背景画像を使用（テキストなしで続行）
-            logger.warn('テキストなしの背景画像を使用します');
-          }
-        }
-
-        await htmlComposer.close();
-      } else if (directTextRendering) {
-        // 直接テキスト描画モード: Gensparkで生成した画像をそのまま使用（完成品）
-        logger.info('ステップ6: Genspark生成画像をそのまま使用（完成品）');
-        finalImages = generatedImages;
-
-        // 出力ディレクトリにコピー
-        const outputDir = path.join(PATHS.generated, topicId);
-        await fs.mkdir(outputDir, { recursive: true });
-
-        const copiedImages: string[] = [];
-        for (let i = 0; i < finalImages.length; i++) {
-          const destPath = path.join(outputDir, `slide_${i + 1}.jpg`);
-          await fs.copyFile(finalImages[i], destPath);
-          copiedImages.push(destPath);
-          logger.info(`スライド ${i + 1}/${finalImages.length} をコピーしました`);
-        }
-        finalImages = copiedImages;
-        logger.success(`${finalImages.length}枚の最終画像を生成`);
-        // directTextRenderingモードではキャラクター合成はスキップ（既に一体化済み）
-      } else {
-        // HTMLテンプレートと合成
-        logger.info('ステップ6: 最終画像を合成中...');
-        finalImages = await htmlComposer.generateCarouselSlides(
-          adjustedSlides,
-          generatedImages,
-          topicId
-        );
-        await htmlComposer.close();
-        logger.success(`${finalImages.length}枚の最終画像を生成`);
-
-        // HTMLモードの場合のみキャラクター合成（有効な場合）
-        if (useCharacters) {
-          logger.info('ステップ6.5: キャラクターを合成中...');
-          const outputDir = path.join(PATHS.generated, topicId);
-
-          // 元の画像を上書きしてキャラクターを合成
-          const characterImages = await characterCompositor.compositeCarousel(
-            finalImages,
-            outputDir,
-            topicId
-          );
-
-          // キャラクター合成版を最終画像として使用
-          finalImages = characterImages;
-          logger.success(`${finalImages.length}枚にキャラクターを合成しました`);
-        }
+      finalImages = [];
+      for (let i = 0; i < generatedImages.length; i++) {
+        if (!generatedImages[i] || generatedImages[i].length === 0) continue;
+        const destPath = path.join(outputDir, `slide_${i + 1}.jpg`);
+        await fs.copyFile(generatedImages[i], destPath);
+        finalImages.push(destPath);
+        logger.info(`スライド ${i + 1} をコピーしました`);
       }
+      logger.success(`${finalImages.length}枚の最終画像を準備完了`);
 
       // ========================================
       // ステップ7: FTPアップロード
