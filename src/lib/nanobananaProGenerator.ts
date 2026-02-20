@@ -183,7 +183,7 @@ Generate ONLY the image. No text response needed.`;
 
       // Gemini API呼び出し
       const response = await client.models.generateContent({
-        model: 'gemini-2.0-flash-exp-image-generation',
+        model: 'gemini-3-pro-image-preview',
         contents: [{ role: 'user', parts: contents.map(c => {
           if (typeof c === 'string') return { text: c };
           return c;
